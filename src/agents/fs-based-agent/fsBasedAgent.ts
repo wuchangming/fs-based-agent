@@ -40,12 +40,17 @@ User query: ${params.query}
 
 Use the available tools to search and analyze the files to answer the user's question.`;
 
-    const result = await agent.invoke({
-        messages: [
-            new SystemMessage(fsBasedAgentPrompt),
-            new HumanMessage(contextMessage),
-        ],
-    });
+    const result = await agent.invoke(
+        {
+            messages: [
+                new SystemMessage(fsBasedAgentPrompt),
+                new HumanMessage(contextMessage),
+            ],
+        },
+        {
+            recursionLimit: 100, // Increase from default 25 to allow more tool calls
+        }
+    );
 
     return (result.messages.at(-1)?.content as string) ?? "";
 }) satisfies RunAgentFunction<FsBasedAgentParams, string>;

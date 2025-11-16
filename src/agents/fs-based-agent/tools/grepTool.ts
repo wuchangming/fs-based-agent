@@ -27,7 +27,6 @@ async function isCommandAvailable(command: string): Promise<boolean> {
         try {
             const child = spawn(checkCommand, checkArgs, {
                 stdio: "ignore",
-                shell: true,
             });
             child.on("close", (code) => resolve(code === 0));
             child.on("error", () => resolve(false));
