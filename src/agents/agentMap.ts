@@ -1,7 +1,6 @@
 import type { RunAgentFunction } from "../core/CoreDef.js";
+import { runDemoAgent } from "./demo-agent/demoAgent.js";
 
 export default {
-    demo: async (params: any) => {
-        return 'demo';
-    }
+    demo: runDemoAgent,
 } satisfies Record<string, RunAgentFunction<any, any>>;

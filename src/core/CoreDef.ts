@@ -3,4 +3,4 @@ export type AgentConfig<T extends Record<string, any>> = {
     params: T;
 }
 
-export type RunAgentFunction<P extends Record<string, any>, R> = (config: AgentConfig<P>) => Promise<R>;
+export type RunAgentFunction<P extends Record<string, any>, R> = (params: P) => Promise<R>;
