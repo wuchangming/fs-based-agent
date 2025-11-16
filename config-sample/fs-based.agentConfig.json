@@ -1,0 +1,11 @@
+{
+  "agentName": "fs-based",
+  "params": {
+    "modelName": "gpt-4o-mini",
+    "apiKey": "your-api-key-here",
+    "baseURL": "https://api.openai.com/v1",
+    "rootPath": "/path/to/directory/to/analyze",
+    "query": "What the project is about?"
+  }
+}
+
