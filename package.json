@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "start": "tsx src/cli.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc"
   },
   "author": "wuchangming",
   "license": "MIT",
@@ -16,6 +16,10 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "commander": "^14.0.2"
+    "@langchain/core": "^1.0.5",
+    "@langchain/openai": "^1.1.1",
+    "commander": "^14.0.2",
+    "langchain": "^1.0.4",
+    "zod": "^4.1.12"
   }
 }
