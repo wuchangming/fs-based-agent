@@ -1,9 +1,11 @@
 {
   "name": "fs-based-agent",
   "version": "0.0.0",
+  "type": "module",
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "tsx src/cli.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "wuchangming",
@@ -12,5 +14,8 @@
     "@types/node": "^24.10.1",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "commander": "^14.0.2"
   }
 }

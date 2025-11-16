@@ -1,0 +1,6 @@
+{
+    "agentName": "demo",
+    "params": {
+        "modelName": "gpt-4o-mini"
+    }
+}
