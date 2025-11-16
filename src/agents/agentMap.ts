@@ -4,5 +4,5 @@ import { runFsBasedAgent } from "./fs-based-agent/fsBasedAgent.js";
 
 export default {
     demo: runDemoAgent,
-    fsBased: runFsBasedAgent,
+    'fs-based': runFsBasedAgent,
 } satisfies Record<string, RunAgentFunction<any, any>>;
