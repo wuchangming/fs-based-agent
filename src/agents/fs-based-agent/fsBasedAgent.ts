@@ -8,6 +8,7 @@ import { createGlobTool } from "./tools/globTool.js";
 import { createGrepTool } from "./tools/grepTool.js";
 import { createReadFileTool } from "./tools/readFileTool.js";
 import { createReadManyFilesTool } from "./tools/readManyFilesTool.js";
+import { uniqueIdMiddleware } from "../../utils/uniqueIdMiddleware.js";
 
 type FsBasedAgentParams = {
     modelName: string;
@@ -31,6 +32,7 @@ export const runFsBasedAgent = (async (params: FsBasedAgentParams) => {
     const agent = createAgent({
         model: getLLM(params.modelName, params.apiKey, params.baseURL),
         tools,
+        middleware: [uniqueIdMiddleware],
     });
 
     // Construct the context message
