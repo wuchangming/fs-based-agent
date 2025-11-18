@@ -9,7 +9,7 @@ export interface ReadFileToolParams {
 }
 
 const DEFAULT_MAX_LINES = 2000;
-const MAX_LINE_LENGTH = 10000;
+const MAX_LINE_LENGTH = 2000;
 
 /**
  * Create a tool for reading file contents

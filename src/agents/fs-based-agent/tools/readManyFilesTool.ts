@@ -11,7 +11,7 @@ export interface ReadManyFilesToolParams {
 
 const MAX_FILE_SIZE = 100000; // 100KB per file
 const MAX_TOTAL_SIZE = 500000; // 500KB total
-const MAX_LINE_LENGTH = 5000;
+const MAX_LINE_LENGTH = 2000;
 
 /**
  * Create a tool for reading multiple files at once

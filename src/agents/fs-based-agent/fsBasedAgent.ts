@@ -50,7 +50,7 @@ Use the available tools to search and analyze the files to answer the user's que
             ],
         },
         {
-            recursionLimit: 100, // Increase from default 25 to allow more tool calls
+            recursionLimit: 200, // Increase from default 25 to allow more tool calls
         }
     );
 

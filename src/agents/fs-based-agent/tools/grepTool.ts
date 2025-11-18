@@ -1,10 +1,9 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { spawn } from "node:child_process";
-import fs from "node:fs/promises";
 import path from "node:path";
-import { glob } from "glob";
 import { mergeIgnorePatterns } from "../utils/ignorePatterns.js";
+import { ensureRipgrepAvailable } from "../utils/ripgrepUtils.js";
 
 export interface GrepToolParams {
     rootPath: string;
@@ -17,29 +16,9 @@ interface GrepMatch {
 }
 
 /**
- * Check if a command is available
+ * Parse ripgrep output (format: filepath:lineNumber:lineContent)
  */
-async function isCommandAvailable(command: string): Promise<boolean> {
-    return new Promise((resolve) => {
-        const checkCommand = process.platform === "win32" ? "where" : "command";
-        const checkArgs = process.platform === "win32" ? [command] : ["-v", command];
-        
-        try {
-            const child = spawn(checkCommand, checkArgs, {
-                stdio: "ignore",
-            });
-            child.on("close", (code) => resolve(code === 0));
-            child.on("error", () => resolve(false));
-        } catch {
-            resolve(false);
-        }
-    });
-}
-
-/**
- * Parse grep output (format: filepath:lineNumber:lineContent)
- */
-function parseGrepOutput(output: string, basePath: string): GrepMatch[] {
+function parseRipgrepOutput(output: string, basePath: string): GrepMatch[] {
     const results: GrepMatch[] = [];
     if (!output) return results;
     
@@ -73,234 +52,68 @@ function parseGrepOutput(output: string, basePath: string): GrepMatch[] {
 }
 
 /**
- * Try ripgrep search
+ * Perform ripgrep search
  */
-async function tryRipgrep(
+async function ripgrepSearch(
     pattern: string,
     searchPath: string,
     include?: string,
     caseInsensitive?: boolean,
     context?: number,
     ignorePatterns?: string[]
-): Promise<GrepMatch[] | null> {
-    const rgAvailable = await isCommandAvailable("rg");
-    if (!rgAvailable) return null;
-    
-    try {
-        const args = ["--line-number", "--no-heading"];
-        
-        if (caseInsensitive) {
-            args.push("--ignore-case");
-        }
-        
-        if (context !== undefined && context > 0) {
-            args.push("--context", context.toString());
-        }
-        
-        if (include) {
-            args.push("--glob", include);
-        }
-        
-        // Add ignore patterns
-        if (ignorePatterns) {
-            ignorePatterns.forEach((pattern) => {
-                args.push("--glob", `!${pattern}`);
-            });
-        }
-        
-        args.push(pattern, searchPath);
-        
-        const output = await new Promise<string>((resolve, reject) => {
-            const child = spawn("rg", args, { windowsHide: true });
-            const stdoutChunks: Buffer[] = [];
-            const stderrChunks: Buffer[] = [];
-            
-            child.stdout.on("data", (chunk) => stdoutChunks.push(chunk));
-            child.stderr.on("data", (chunk) => stderrChunks.push(chunk));
-            child.on("error", (err) => reject(err));
-            child.on("close", (code) => {
-                const stdoutData = Buffer.concat(stdoutChunks).toString("utf8");
-                if (code === 0) {
-                    resolve(stdoutData);
-                } else if (code === 1) {
-                    resolve(""); // No matches
-                } else {
-                    const stderrData = Buffer.concat(stderrChunks).toString("utf8");
-                    reject(new Error(`ripgrep exited with code ${code}: ${stderrData}`));
-                }
-            });
-        });
-        
-        return parseGrepOutput(output, searchPath);
-    } catch (error) {
-        return null;
-    }
-}
-
-/**
- * Try git grep search
- */
-async function tryGitGrep(
-    pattern: string,
-    searchPath: string,
-    include?: string,
-    caseInsensitive?: boolean
-): Promise<GrepMatch[] | null> {
-    const gitAvailable = await isCommandAvailable("git");
-    if (!gitAvailable) return null;
-    
-    // Check if searchPath is in a git repository
-    try {
-        await new Promise<void>((resolve, reject) => {
-            const child = spawn("git", ["rev-parse", "--git-dir"], {
-                cwd: searchPath,
-                stdio: "ignore",
-            });
-            child.on("close", (code) => (code === 0 ? resolve() : reject()));
-            child.on("error", reject);
-        });
-    } catch {
-        return null; // Not a git repository
-    }
-    
-    try {
-        const args = ["grep", "--untracked", "-n", "-E"];
-        
-        if (caseInsensitive) {
-            args.push("--ignore-case");
-        }
-        
-        args.push(pattern);
-        
-        if (include) {
-            args.push("--", include);
-        }
-        
-        const output = await new Promise<string>((resolve, reject) => {
-            const child = spawn("git", args, { cwd: searchPath, windowsHide: true });
-            const stdoutChunks: Buffer[] = [];
-            
-            child.stdout.on("data", (chunk) => stdoutChunks.push(chunk));
-            child.on("error", (err) => reject(err));
-            child.on("close", (code) => {
-                const stdoutData = Buffer.concat(stdoutChunks).toString("utf8");
-                if (code === 0 || code === 1) {
-                    resolve(stdoutData);
-                } else {
-                    reject(new Error(`git grep exited with code ${code}`));
-                }
-            });
-        });
-        
-        return parseGrepOutput(output, searchPath);
-    } catch (error) {
-        return null;
-    }
-}
-
-/**
- * Try system grep search
- */
-async function trySystemGrep(
-    pattern: string,
-    searchPath: string,
-    include?: string,
-    caseInsensitive?: boolean,
-    ignorePatterns?: string[]
-): Promise<GrepMatch[] | null> {
-    const grepAvailable = await isCommandAvailable("grep");
-    if (!grepAvailable) return null;
-    
-    try {
-        const args = ["-r", "-n", "-E"];
-        
-        if (caseInsensitive) {
-            args.push("-i");
-        }
-        
-        // Add exclude patterns
-        if (ignorePatterns) {
-            ignorePatterns.forEach((pattern) => {
-                if (!pattern.includes("*") && !pattern.includes("/")) {
-                    args.push(`--exclude-dir=${pattern}`);
-                }
-            });
-        }
-        
-        if (include) {
-            args.push(`--include=${include}`);
-        }
-        
-        args.push(pattern, ".");
-        
-        const output = await new Promise<string>((resolve, reject) => {
-            const child = spawn("grep", args, { cwd: searchPath, windowsHide: true });
-            const stdoutChunks: Buffer[] = [];
-            
-            child.stdout.on("data", (chunk) => stdoutChunks.push(chunk));
-            child.on("error", (err) => reject(err));
-            child.on("close", (code) => {
-                const stdoutData = Buffer.concat(stdoutChunks).toString("utf8");
-                if (code === 0 || code === 1) {
-                    resolve(stdoutData);
-                } else {
-                    resolve(""); // Suppress other errors
-                }
-            });
-        });
-        
-        return parseGrepOutput(output, searchPath);
-    } catch (error) {
-        return null;
-    }
-}
-
-/**
- * Fallback to JavaScript-based search
- */
-async function jsGrep(
-    pattern: string,
-    searchPath: string,
-    include?: string,
-    caseInsensitive?: boolean,
-    ignorePatterns?: string[]
 ): Promise<GrepMatch[]> {
-    const regex = new RegExp(pattern, caseInsensitive ? "i" : "");
-    const globPattern = include || "**/*";
-    const allMatches: GrepMatch[] = [];
+    // Ensure ripgrep is available
+    const rgPath = await ensureRipgrepAvailable();
     
-    const files = await glob(globPattern, {
-        cwd: searchPath,
-        nodir: true,
-        dot: true,
-        ignore: ignorePatterns || [],
-        absolute: true,
+    const args = ["--line-number", "--no-heading"];
+    
+    if (caseInsensitive) {
+        args.push("--ignore-case");
+    }
+    
+    if (context !== undefined && context > 0) {
+        args.push("--context", context.toString());
+    }
+    
+    if (include) {
+        args.push("--glob", include);
+    }
+    
+    // Add ignore patterns
+    if (ignorePatterns && ignorePatterns.length > 0) {
+        ignorePatterns.forEach((pattern) => {
+            args.push("--glob", `!${pattern}`);
+        });
+    }
+    
+    args.push(pattern, searchPath);
+    
+    const output = await new Promise<string>((resolve, reject) => {
+        const child = spawn(rgPath, args, { windowsHide: true });
+        const stdoutChunks: Buffer[] = [];
+        const stderrChunks: Buffer[] = [];
+        
+        child.stdout.on("data", (chunk) => stdoutChunks.push(chunk));
+        child.stderr.on("data", (chunk) => stderrChunks.push(chunk));
+        child.on("error", (err) => reject(err));
+        child.on("close", (code) => {
+            const stdoutData = Buffer.concat(stdoutChunks).toString("utf8");
+            if (code === 0) {
+                resolve(stdoutData);
+            } else if (code === 1) {
+                resolve(""); // No matches
+            } else {
+                const stderrData = Buffer.concat(stderrChunks).toString("utf8");
+                reject(new Error(`ripgrep exited with code ${code}: ${stderrData}`));
+            }
+        });
     });
     
-    for (const filePath of files) {
-        try {
-            const content = await fs.readFile(filePath, "utf8");
-            const lines = content.split(/\r?\n/);
-            
-            lines.forEach((line, index) => {
-                if (regex.test(line)) {
-                    allMatches.push({
-                        filePath: path.relative(searchPath, filePath),
-                        lineNumber: index + 1,
-                        line,
-                    });
-                }
-            });
-        } catch (error) {
-            // Skip files we can't read
-        }
-    }
-    
-    return allMatches;
+    return parseRipgrepOutput(output, searchPath);
 }
 
 /**
- * Create a tool for searching file contents
+ * Create a tool for searching file contents using ripgrep
  */
 export function createGrepTool({ rootPath }: GrepToolParams) {
     return tool(
@@ -326,11 +139,8 @@ export function createGrepTool({ rootPath }: GrepToolParams) {
                 const allIgnorePatterns = mergeIgnorePatterns([]);
                 const caseInsensitive = !case_sensitive;
                 
-                // Try different grep strategies in order
-                let matches: GrepMatch[] = [];
-                
-                // 1. Try ripgrep (fastest)
-                const ripgrepResult = await tryRipgrep(
+                // Perform ripgrep search (will throw if ripgrep not available)
+                let matches = await ripgrepSearch(
                     pattern,
                     searchDir,
                     include,
@@ -339,43 +149,21 @@ export function createGrepTool({ rootPath }: GrepToolParams) {
                     allIgnorePatterns
                 );
                 
-                if (ripgrepResult !== null) {
-                    matches = ripgrepResult;
-                } else {
-                    // 2. Try git grep
-                    const gitGrepResult = await tryGitGrep(pattern, searchDir, include, caseInsensitive);
-                    
-                    if (gitGrepResult !== null) {
-                        matches = gitGrepResult;
-                    } else {
-                        // 3. Try system grep
-                        const systemGrepResult = await trySystemGrep(
-                            pattern,
-                            searchDir,
-                            include,
-                            caseInsensitive,
-                            allIgnorePatterns
-                        );
-                        
-                        if (systemGrepResult !== null) {
-                            matches = systemGrepResult;
-                        } else {
-                            // 4. Fallback to JavaScript implementation
-                            matches = await jsGrep(
-                                pattern,
-                                searchDir,
-                                include,
-                                caseInsensitive,
-                                allIgnorePatterns
-                            );
-                        }
-                    }
-                }
-                
                 if (matches.length === 0) {
                     const location = dir_path ? ` in '${dir_path}'` : "";
                     const filter = include ? ` (filter: "${include}")` : "";
                     return `No matches found for pattern "${pattern}"${location}${filter}`;
+                }
+                
+                // Limits
+                const MAX_MATCHES = 2000;
+                const MAX_LINE_LENGTH = 2000;
+                let matchesLimited = false;
+                
+                // Limit number of matches
+                if (matches.length > MAX_MATCHES) {
+                    matches = matches.slice(0, MAX_MATCHES);
+                    matchesLimited = true;
                 }
                 
                 // Group matches by file
@@ -395,27 +183,41 @@ export function createGrepTool({ rootPath }: GrepToolParams) {
                 // Format output
                 const location = dir_path ? ` in '${dir_path}'` : "";
                 const filter = include ? ` (filter: "${include}")` : "";
-                let result = `Found ${matches.length} match(es) for pattern "${pattern}"${location}${filter}:\n---\n`;
+                const matchTerm = matches.length === 1 ? "match" : "matches";
+                let result = `Found ${matches.length} ${matchTerm} for pattern "${pattern}"${location}${filter}`;
+                
+                if (matchesLimited) {
+                    result += ` (limited to ${MAX_MATCHES} matches)`;
+                }
+                
+                result += `:\n---\n`;
                 
                 for (const filePath in matchesByFile) {
                     result += `File: ${filePath}\n`;
+                    
                     for (const match of matchesByFile[filePath]!) {
-                        result += `L${match.lineNumber}: ${match.line.trim()}\n`;
+                        const trimmedLine = match.line.trim();
+                        // Limit line length
+                        const displayLine = trimmedLine.length > MAX_LINE_LENGTH 
+                            ? trimmedLine.substring(0, MAX_LINE_LENGTH) + `... [line truncated, total ${trimmedLine.length} chars]`
+                            : trimmedLine;
+                        result += `L${match.lineNumber}: ${displayLine}\n`;
                     }
+                    
                     result += "---\n";
                 }
                 
                 return result.trim();
             } catch (error) {
                 if (error instanceof Error) {
-                    return `Error searching files: ${error.message}`;
+                    return error.message;
                 }
                 return `Error searching files: ${String(error)}`;
             }
         },
         {
             name: "search_file_content",
-            description: `Searches for a regular expression pattern within the content of files. Returns matching lines with file paths and line numbers. Uses ripgrep for performance when available, with automatic fallback to git grep, system grep, or JavaScript implementation.
+            description: `Searches for a regular expression pattern within the content of files using ripgrep (rg). Returns matching lines with file paths and line numbers.
 
 Usage examples:
 - Search in all files: { pattern: "function.*myFunc" }
@@ -430,7 +232,12 @@ Pattern syntax:
 - Use .* for wildcards
 - Escape special characters: \\(, \\), \\[, \\]
 
-The tool automatically ignores common patterns like node_modules, .git, dist, build, etc.`,
+Limits:
+- Maximum 2000 matching lines (results are truncated if exceeded)
+- Maximum 2000 characters per line (lines are truncated if exceeded)
+
+The tool automatically ignores common patterns like node_modules, .git, dist, build, etc.
+Requires ripgrep (rg) to be installed on the system.`,
             schema: z.object({
                 pattern: z
                     .string()
@@ -451,9 +258,8 @@ The tool automatically ignores common patterns like node_modules, .git, dist, bu
                 context: z
                     .number()
                     .optional()
-                    .describe("Number of lines of context to show around each match (only works with ripgrep)."),
+                    .describe("Number of lines of context to show around each match."),
             }),
         }
     );
 }
-
