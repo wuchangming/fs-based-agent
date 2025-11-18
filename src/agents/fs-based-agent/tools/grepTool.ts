@@ -15,6 +15,9 @@ interface GrepMatch {
     line: string;
 }
 
+const MAX_MATCHES = 2000;
+const MAX_LINE_LENGTH = 2000;
+
 /**
  * Parse ripgrep output (format: filepath:lineNumber:lineContent)
  */
@@ -155,9 +158,7 @@ export function createGrepTool({ rootPath }: GrepToolParams) {
                     return `No matches found for pattern "${pattern}"${location}${filter}`;
                 }
                 
-                // Limits
-                const MAX_MATCHES = 2000;
-                const MAX_LINE_LENGTH = 2000;
+
                 let matchesLimited = false;
                 
                 // Limit number of matches
