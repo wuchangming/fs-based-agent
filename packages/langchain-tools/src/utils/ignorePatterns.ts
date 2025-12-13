@@ -3,7 +3,7 @@
  */
 
 // Common directories and files to ignore
-const DEFAULT_IGNORE_PATTERNS = [
+export const DEFAULT_IGNORE_PATTERNS = [
     // Dependencies
     'node_modules',
     'bower_components',
@@ -64,13 +64,6 @@ const DEFAULT_IGNORE_PATTERNS = [
 ];
 
 /**
- * Get the default ignore patterns
- */
-export function getDefaultIgnorePatterns(): string[] {
-    return [...DEFAULT_IGNORE_PATTERNS];
-}
-
-/**
  * Convert a glob pattern to a regex pattern
  */
 function globToRegex(pattern: string): RegExp {
@@ -125,12 +118,5 @@ export function shouldIgnore(
     }
     
     return false;
-}
-
-/**
- * Merge custom ignore patterns with defaults
- */
-export function mergeIgnorePatterns(customPatterns: string[] = []): string[] {
-    return [...DEFAULT_IGNORE_PATTERNS, ...customPatterns];
 }
 

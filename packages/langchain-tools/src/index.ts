@@ -5,8 +5,7 @@ export { createReadFileTool, type ReadFileToolParams } from './readFileTool.js';
 export { createWriteFileTool, type WriteFileToolParams } from './writeFileTool.js';
 
 export {
-  getDefaultIgnorePatterns,
+  DEFAULT_IGNORE_PATTERNS,
   shouldIgnore,
-  mergeIgnorePatterns,
 } from './utils/ignorePatterns.js';
 

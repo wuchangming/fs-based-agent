@@ -3,7 +3,7 @@ import { z } from "zod";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs";
-import { mergeIgnorePatterns } from "./utils/ignorePatterns.js";
+import { DEFAULT_IGNORE_PATTERNS } from "./utils/ignorePatterns.js";
 import { ensureRgPath } from "./utils/ripgrepInstaller.js";
 
 // ============ 配置常量 ============
@@ -533,7 +533,7 @@ export function createGrepTool({
                 }
 
                 // 合并忽略模式
-                const ignorePatterns = mergeIgnorePatterns(additionalIgnorePatterns);
+                const ignorePatterns = [...DEFAULT_IGNORE_PATTERNS, ...additionalIgnorePatterns];
                 const caseInsensitive = !case_sensitive;
 
                 // 根据配置的 outputMode 执行不同的搜索

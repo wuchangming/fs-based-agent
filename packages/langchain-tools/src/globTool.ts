@@ -2,7 +2,7 @@ import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { glob } from "glob";
 import path from "node:path";
-import { mergeIgnorePatterns } from "./utils/ignorePatterns.js";
+import { DEFAULT_IGNORE_PATTERNS } from "./utils/ignorePatterns.js";
 
 const LIMIT = 100;
 
@@ -29,7 +29,7 @@ export function createGlobTool({ rootPath, additionalIgnorePatterns = [] }: Glob
                 }
                 
                 // Merge ignore patterns with additional patterns
-                const allIgnorePatterns = mergeIgnorePatterns([...ignore, ...additionalIgnorePatterns]);
+                const allIgnorePatterns = [...DEFAULT_IGNORE_PATTERNS, ...ignore, ...additionalIgnorePatterns];
                 
                 // Search for matching files
                 // Note: cannot use `absolute` option together with `withFileTypes: true`
