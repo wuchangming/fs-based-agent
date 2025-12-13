@@ -36,5 +36,14 @@
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
     "skipLibCheck": true,
-  }
+
+    // Composite for project references
+    "composite": true
+  },
+  "references": [
+    { "path": "./packages/core" },
+    { "path": "./packages/langchain-tools" },
+    { "path": "./playgrounds/repo-wiki-agent" }
+  ],
+  "files": []
 }

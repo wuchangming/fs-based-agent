@@ -1,0 +1,10 @@
+{
+  "name": "@fs-based-agent/repo-wiki-agent",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc"
+  },
+  "license": "MIT"
+}
