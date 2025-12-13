@@ -6,23 +6,23 @@ import fs from "node:fs";
 import { DEFAULT_IGNORE_PATTERNS } from "./utils/ignorePatterns.js";
 import { ensureRgPath } from "./utils/ripgrepInstaller.js";
 
-// ============ 配置常量 ============
-const MAX_RESULTS = 2000;               // 最多返回 2000 条结果
-const DEFAULT_MAX_OUTPUT_BYTES = 64 * 1024;  // 64KB 输出上限（约 16K tokens）
-const MAX_LINE_LENGTH = 350;           // 单行最大长度（用于 content 模式预览）
+// ============ Configuration Constants ============
+const MAX_RESULTS = 2000;               // Maximum 2000 results
+const DEFAULT_MAX_OUTPUT_BYTES = 64 * 1024;  // 64KB output limit (~16K tokens)
+const MAX_LINE_LENGTH = 350;           // Maximum line length (for content mode preview)
 
-// ============ 类型定义 ============
+// ============ Type Definitions ============
 
 /**
- * grep 工具的输出模式
+ * Output modes for grep tool
  * 
- * | 模式        | ripgrep 参数 | 返回内容                     | Token 消耗 | 适用场景                              |
- * |-------------|-------------|------------------------------|-----------|--------------------------------------|
- * | files_only  | rg -l       | 只返回文件名列表               | 最少 ✅    | 先定位文件，再用 read_file 查看具体内容 |
- * | count       | rg -c       | 文件名 + 每文件匹配数          | 较少      | 了解匹配分布，找出"重点文件"           |
- * | content     | rg --json   | 文件名 + 行号 + 匹配行内容     | 最多      | 需要快速预览匹配上下文（有字节限制保护）  |
+ * | Mode        | ripgrep flag | Returns                      | Token cost | Use case                              |
+ * |-------------|--------------|------------------------------|------------|---------------------------------------|
+ * | files_only  | rg -l        | Only file name list          | Least ✅   | Locate files first, then read_file   |
+ * | count       | rg -c        | File name + match count      | Less       | Understand match distribution         |
+ * | content     | rg --json    | File + line + match content  | Most       | Quick preview with byte limit         |
  * 
- * @example files_only 模式输出
+ * @example files_only mode output
  * ```
  * Found 50 files matching pattern "useState":
  * src/App.tsx
@@ -31,7 +31,7 @@ const MAX_LINE_LENGTH = 350;           // 单行最大长度（用于 content �
  * ...
  * ```
  * 
- * @example count 模式输出
+ * @example count mode output
  * ```
  * Found 120 matches in 50 files:
  * src/App.tsx: 15 match(es)
@@ -39,7 +39,7 @@ const MAX_LINE_LENGTH = 350;           // 单行最大长度（用于 content �
  * ...
  * ```
  * 
- * @example content 模式输出
+ * @example content mode output
  * ```
  * Found 120 matches:
  * 
@@ -58,11 +58,11 @@ export type OutputMode = "files_only" | "count" | "content";
 export interface GrepToolParams {
     rootPath: string;
     additionalIgnorePatterns?: string[];
-    /** 输出模式：files_only、count、content（默认） */
+    /** Output mode: files_only, count, content (default) */
     outputMode?: OutputMode;
-    /** 输出字节数上限，默认 64KB */
+    /** Maximum output bytes, default 64KB */
     maxOutputBytes?: number;
-    /** 最大结果数，默认 100 */
+    /** Maximum results, default 100 */
     maxResults?: number;
 }
 
@@ -73,10 +73,10 @@ interface GrepMatch {
     modTime?: number;
 }
 
-// ============ 通用 ripgrep 执行函数 ============
+// ============ Common ripgrep Execution Functions ============
 
 /**
- * 执行 ripgrep 命令并返回输出
+ * Execute ripgrep command and return output
  */
 async function runRipgrep(rgPath: string, args: string[]): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -101,7 +101,7 @@ async function runRipgrep(rgPath: string, args: string[]): Promise<string> {
 }
 
 /**
- * 构建通用的 ripgrep 参数
+ * Build common ripgrep arguments
  */
 function buildCommonArgs(
     include?: string,
@@ -110,7 +110,7 @@ function buildCommonArgs(
 ): string[] {
     const args: string[] = [];
 
-    // 不遵守 .gitignore 规则，确保搜索所有文件
+    // Do not respect .gitignore rules, ensure all files are searched
     args.push("--no-ignore");
 
     if (caseInsensitive) {
@@ -130,10 +130,10 @@ function buildCommonArgs(
     return args;
 }
 
-// ============ 搜索函数：files_only 模式 ============
+// ============ Search Function: files_only Mode ============
 
 /**
- * 只返回包含匹配的文件名列表（使用 rg -l）
+ * Return only file names containing matches (using rg -l)
  */
 async function searchFilesOnly(
     rgPath: string,
@@ -154,7 +154,7 @@ async function searchFilesOnly(
 
     const allFiles = output.trim().split("\n").filter(Boolean);
 
-    // 获取文件修改时间并排序（最近的在前）
+    // Get file modification time and sort (most recent first)
     const filesWithTime = await Promise.all(
         allFiles.map(async (filePath) => {
             const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(searchPath, filePath);
@@ -177,10 +177,10 @@ async function searchFilesOnly(
     return { files, totalCount, truncated };
 }
 
-// ============ 搜索函数：count 模式 ============
+// ============ Search Function: count Mode ============
 
 /**
- * 返回每个文件的匹配计数（使用 rg -c）
+ * Return match count per file (using rg -c)
  */
 async function searchWithCount(
     rgPath: string,
@@ -225,7 +225,7 @@ async function searchWithCount(
         entries.push({ path: relativePath, count, modTime });
     }
 
-    // 按匹配数排序（多的在前），相同则按修改时间排序
+    // Sort by match count (highest first), then by modification time
     entries.sort((a, b) => {
         if (b.count !== a.count) return b.count - a.count;
         return b.modTime - a.modTime;
@@ -242,10 +242,10 @@ async function searchWithCount(
     return { counts, totalFiles, totalMatches, truncated };
 }
 
-// ============ 搜索函数：content 模式 ============
+// ============ Search Function: content Mode ============
 
 /**
- * 返回匹配内容（使用 rg --json），带字节数限制
+ * Return match content (using rg --json), with byte limit
  */
 async function searchWithContent(
     rgPath: string,
@@ -292,7 +292,7 @@ async function searchWithContent(
         } catch { /* skip invalid JSON */ }
     }
 
-    // 按修改时间排序（最近的在前）
+    // Sort by modification time (most recent first)
     matches.sort((a, b) => (b.modTime || 0) - (a.modTime || 0));
 
     const totalCount = matches.length;
@@ -305,10 +305,10 @@ async function searchWithContent(
     };
 }
 
-// ============ 输出格式化函数 ============
+// ============ Output Formatting Functions ============
 
 /**
- * 格式化 files_only 模式的输出
+ * Format files_only mode output
  */
 function formatFilesOnlyOutput(
     files: string[],
@@ -341,7 +341,7 @@ function formatFilesOnlyOutput(
 }
 
 /**
- * 格式化 count 模式的输出
+ * Format count mode output
  */
 function formatCountOutput(
     counts: Map<string, number>,
@@ -377,7 +377,7 @@ function formatCountOutput(
 }
 
 /**
- * 格式化 content 模式的输出，带字节数限制
+ * Format content mode output with byte limit
  */
 function formatContentOutput(
     matches: GrepMatch[],
@@ -390,7 +390,7 @@ function formatContentOutput(
         return `No matches found for pattern "${pattern}"`;
     }
 
-    // 按文件分组
+    // Group by file
     const byFile = new Map<string, GrepMatch[]>();
     for (const match of matches) {
         if (!byFile.has(match.filePath)) {
@@ -403,7 +403,7 @@ function formatContentOutput(
     let currentBytes = 0;
     let hitByteLimit = false;
 
-    // 头部信息
+    // Header info
     const header = truncated
         ? `Found ${totalCount} matches for pattern "${pattern}" (showing first ${matches.length}):\n\n`
         : `Found ${totalCount} match(es) for pattern "${pattern}":\n\n`;
@@ -423,11 +423,11 @@ function formatContentOutput(
         output += fileHeader;
         currentBytes += fileHeaderBytes;
 
-        // 每个文件最多显示 5 行匹配
+        // Show at most 5 matches per file
         const displayMatches = fileMatches.slice(0, 5);
 
         for (const match of displayMatches) {
-            // 截断过长的行
+            // Truncate lines that are too long
             let lineContent = match.line.trim();
             if (lineContent.length > MAX_LINE_LENGTH) {
                 lineContent = lineContent.substring(0, MAX_LINE_LENGTH) + "...";
@@ -467,7 +467,7 @@ function formatContentOutput(
     return output.trim();
 }
 
-// ============ 工具描述生成 ============
+// ============ Tool Description Generation ============
 
 function getToolDescription(outputMode: OutputMode, maxResults: number): string {
     const modeDescriptions: Record<OutputMode, string> = {
@@ -500,10 +500,10 @@ Pattern syntax (Rust regex):
 Automatically ignores node_modules, .git, dist, build, etc.`;
 }
 
-// ============ 主工具创建函数 ============
+// ============ Main Tool Creation Function ============
 
 /**
- * 创建 grep 工具
+ * Create grep tool
  */
 export function createGrepTool({
     rootPath,
@@ -512,31 +512,31 @@ export function createGrepTool({
     maxOutputBytes = DEFAULT_MAX_OUTPUT_BYTES,
     maxResults = MAX_RESULTS,
 }: GrepToolParams) {
-    // 确保 maxResults 不超过上限
+    // Ensure maxResults does not exceed the limit
     const effectiveMaxResults = Math.min(maxResults, MAX_RESULTS);
 
     return tool(
         async ({ pattern, dir_path, include, case_sensitive = false }) => {
             try {
-                // 确保 ripgrep 可用
+                // Ensure ripgrep is available
                 const rgPath = await ensureRgPath();
                 if (!rgPath) {
                     return "Error: Ripgrep is not available and could not be downloaded.";
                 }
 
-                // 解析搜索目录
+                // Parse search directory
                 const searchDir = dir_path ? path.resolve(rootPath, dir_path) : rootPath;
 
-                // 安全检查
+                // Security check
                 if (!searchDir.startsWith(rootPath)) {
                     return "Error: Directory path is outside the allowed root directory.";
                 }
 
-                // 合并忽略模式
+                // Merge ignore patterns
                 const ignorePatterns = [...DEFAULT_IGNORE_PATTERNS, ...additionalIgnorePatterns];
                 const caseInsensitive = !case_sensitive;
 
-                // 根据配置的 outputMode 执行不同的搜索
+                // Execute different search based on configured outputMode
                 switch (outputMode) {
                     case "files_only": {
                         const { files, totalCount, truncated } = await searchFilesOnly(

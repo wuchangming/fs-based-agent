@@ -1,5 +1,5 @@
 /**
- * FsData 操作模块
+ * FsData operations module
  */
 
 import { createHash } from 'crypto';
@@ -7,30 +7,30 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { FsDataManifest } from './types.js';
 
-/** manifest 文件名 */
+/** Manifest filename */
 export const MANIFEST_FILENAME = '.fs-data-manifest.json';
 
-/** dataLink 文件名 */
+/** dataLink filename */
 export const DATA_LINK_FILENAME = 'dataLink';
 
-/** data-space 目录名（fn 的工作目录） */
+/** data-space directory name (fn's working directory) */
 export const DATA_SPACE_DIRNAME = 'data-space';
 
-/** 当前 manifest 版本 */
+/** Current manifest version */
 export const MANIFEST_VERSION = '1.0.0';
 
-/** fs-data 目录版本 */
+/** fs-data directory version */
 export const FS_DATA_VERSION = '1.0.0';
 
 /**
- * 递归稳定排序对象的 key
+ * Recursively stable-sort object keys
  */
 function stableStringify(obj: unknown): string {
   if (obj === null || typeof obj !== 'object') {
     return JSON.stringify(obj);
   }
   if (Array.isArray(obj)) {
-    // 数组元素先序列化再排序，确保相同元素集合生成相同结果
+    // Serialize array elements first then sort, ensure same element set generates same result
     const sorted = obj.map(stableStringify).sort();
     return '[' + sorted.join(',') + ']';
   }
@@ -42,7 +42,7 @@ function stableStringify(obj: unknown): string {
 }
 
 /**
- * 根据 kind + input 生成 dataId（MD5 hash）
+ * Generate dataId based on kind + input (MD5 hash)
  */
 export function generateDataId(kind: string, input: Record<string, unknown>): string {
   const serialized = stableStringify({ kind, input });
@@ -50,14 +50,14 @@ export function generateDataId(kind: string, input: Record<string, unknown>): st
 }
 
 /**
- * 获取 shard（dataId 前 2 位）
+ * Get shard (first 2 characters of dataId)
  */
 export function getShard(dataId: string): string {
   return dataId.slice(0, 2);
 }
 
 /**
- * 构建 FsData 目录路径
+ * Build FsData directory path
  */
 export function buildDataPath(root: string, kind: string, dataId: string): string {
   const shard = getShard(dataId);
@@ -65,7 +65,7 @@ export function buildDataPath(root: string, kind: string, dataId: string): strin
 }
 
 /**
- * 构建 tempDir 路径（与正式路径同级）
+ * Build tempDir path (at same level as formal path)
  */
 export function buildTempPath(root: string, kind: string, dataId: string): string {
   const shard = getShard(dataId);
@@ -74,7 +74,7 @@ export function buildTempPath(root: string, kind: string, dataId: string): strin
 }
 
 /**
- * 检查 FsData 是否存在
+ * Check if FsData exists
  */
 export async function fsDataExists(dataPath: string): Promise<boolean> {
   try {
@@ -86,7 +86,7 @@ export async function fsDataExists(dataPath: string): Promise<boolean> {
 }
 
 /**
- * 读取 manifest
+ * Read manifest
  */
 export async function readManifest(dataPath: string): Promise<FsDataManifest> {
   const manifestPath = path.join(dataPath, MANIFEST_FILENAME);
@@ -95,7 +95,7 @@ export async function readManifest(dataPath: string): Promise<FsDataManifest> {
 }
 
 /**
- * 写入 manifest
+ * Write manifest
  */
 export async function writeManifest(dataPath: string, manifest: FsDataManifest): Promise<void> {
   const manifestPath = path.join(dataPath, MANIFEST_FILENAME);
@@ -103,31 +103,31 @@ export async function writeManifest(dataPath: string, manifest: FsDataManifest):
 }
 
 /**
- * 创建 dataLink 软链接
- * @param dataPath FsData 目录路径
- * @param entry fn 返回的 entry（相对于 data-space）
+ * Create dataLink symlink
+ * @param dataPath FsData directory path
+ * @param entry fn's returned entry (relative to data-space)
  */
 export async function createDataLink(dataPath: string, entry: string): Promise<void> {
   const linkPath = path.join(dataPath, DATA_LINK_FILENAME);
-  // 使用相对路径，指向 data-space 下的 entry
+  // Use relative path, pointing to entry under data-space
   const target = `./${DATA_SPACE_DIRNAME}/${entry}`;
   await fs.symlink(target, linkPath);
 }
 
 /**
- * 读取 dataLink 指向的绝对路径
+ * Read absolute path pointed to by dataLink
  */
 export async function readDataLink(dataPath: string): Promise<string> {
   const linkPath = path.join(dataPath, DATA_LINK_FILENAME);
   const target = await fs.readlink(linkPath);
-  // 解析为绝对路径
+  // Resolve to absolute path
   return path.resolve(dataPath, target);
 }
 
 /**
- * 计算 dep 软链接的目标相对路径
- * @param depPath 软链接路径（绝对路径）
- * @param targetDataPath 目标 FsData 目录路径（绝对路径）
+ * Calculate relative path for dep symlink target
+ * @param depPath Symlink path (absolute path)
+ * @param targetDataPath Target FsData directory path (absolute path)
  */
 export function computeDepLinkTarget(depPath: string, targetDataPath: string): string {
   const targetDataLink = path.join(targetDataPath, DATA_LINK_FILENAME);
@@ -135,36 +135,36 @@ export function computeDepLinkTarget(depPath: string, targetDataPath: string): s
 }
 
 /**
- * 创建 dep 软链接
- * @param depPath 软链接路径（绝对路径）
- * @param targetDataPath 目标 FsData 目录路径（绝对路径）
+ * Create dep symlink
+ * @param depPath Symlink path (absolute path)
+ * @param targetDataPath Target FsData directory path (absolute path)
  */
 export async function createDepLink(depPath: string, targetDataPath: string): Promise<void> {
-  // 确保父目录存在
+  // Ensure parent directory exists
   await fs.mkdir(path.dirname(depPath), { recursive: true });
   
-  // 计算相对路径：从 depPath 的父目录到 targetDataPath 的 dataLink
+  // Calculate relative path: from depPath's parent directory to targetDataPath's dataLink
   const relativePath = computeDepLinkTarget(depPath, targetDataPath);
   
   await fs.symlink(relativePath, depPath);
 }
 
 /**
- * 原子 rename（用于并发控制）
- * @returns true 如果 rename 成功，false 如果目标已存在
+ * Atomic rename (for concurrency control)
+ * @returns true if rename succeeds, false if target already exists
  */
 export async function atomicRename(tempPath: string, targetPath: string): Promise<boolean> {
   try {
-    // 确保目标的父目录存在
+    // Ensure target's parent directory exists
     await fs.mkdir(path.dirname(targetPath), { recursive: true });
-    // 尝试 rename
+    // Try rename
     await fs.rename(tempPath, targetPath);
     return true;
   } catch (err: unknown) {
-    // 检查是否是目标已存在的错误
+    // Check if error is due to target already existing
     if (err && typeof err === 'object' && 'code' in err) {
       const code = (err as { code: string }).code;
-      // EEXIST 或 ENOTEMPTY 表示目标已存在
+      // EEXIST or ENOTEMPTY means target already exists
       if (code === 'EEXIST' || code === 'ENOTEMPTY') {
         return false;
       }
@@ -174,18 +174,18 @@ export async function atomicRename(tempPath: string, targetPath: string): Promis
 }
 
 /**
- * 递归删除目录
+ * Recursively delete directory
  */
 export async function removeDir(dirPath: string): Promise<void> {
   try {
     await fs.rm(dirPath, { recursive: true, force: true });
   } catch {
-    // 忽略删除失败
+    // Ignore delete failure
   }
 }
 
 /**
- * 创建 manifest 对象
+ * Create manifest object
  */
 export function createManifest(
   kind: string,
@@ -202,4 +202,3 @@ export function createManifest(
     updatedAt: now,
   };
 }
-

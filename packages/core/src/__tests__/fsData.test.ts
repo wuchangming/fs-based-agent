@@ -1,5 +1,5 @@
 /**
- * FsData 操作测试
+ * FsData operations tests
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -23,7 +23,7 @@ import {
 } from '../fsData.js';
 
 describe('generateDataId', () => {
-  it('应该为相同 kind + input 生成相同的 dataId', () => {
+  it('should generate same dataId for same kind + input', () => {
     const kind = 'repo-clone';
     const input1 = { url: 'https://github.com/test', branch: 'main' };
     const input2 = { url: 'https://github.com/test', branch: 'main' };
@@ -31,7 +31,7 @@ describe('generateDataId', () => {
     expect(generateDataId(kind, input1)).toBe(generateDataId(kind, input2));
   });
 
-  it('应该为不同 key 顺序的 input 生成相同的 dataId（稳定排序）', () => {
+  it('should generate same dataId for input with different key order (stable sorting)', () => {
     const kind = 'test-kind';
     const input1 = { a: 1, b: 2, c: 3 };
     const input2 = { c: 3, a: 1, b: 2 };
@@ -45,7 +45,7 @@ describe('generateDataId', () => {
     expect(id2).toBe(id3);
   });
 
-  it('应该处理嵌套对象的稳定排序', () => {
+  it('should handle stable sorting for nested objects', () => {
     const kind = 'test-kind';
     const input1 = { outer: { z: 1, a: 2 }, name: 'test' };
     const input2 = { name: 'test', outer: { a: 2, z: 1 } };
@@ -53,7 +53,7 @@ describe('generateDataId', () => {
     expect(generateDataId(kind, input1)).toBe(generateDataId(kind, input2));
   });
 
-  it('应该为不同 input 生成不同的 dataId', () => {
+  it('should generate different dataId for different input', () => {
     const kind = 'test-kind';
     const input1 = { url: 'https://github.com/test1' };
     const input2 = { url: 'https://github.com/test2' };
@@ -61,13 +61,13 @@ describe('generateDataId', () => {
     expect(generateDataId(kind, input1)).not.toBe(generateDataId(kind, input2));
   });
 
-  it('应该为不同 kind 生成不同的 dataId', () => {
+  it('should generate different dataId for different kind', () => {
     const input = { url: 'https://github.com/test' };
     
     expect(generateDataId('kind-a', input)).not.toBe(generateDataId('kind-b', input));
   });
 
-  it('应该返回 32 位的 MD5 hash', () => {
+  it('should return 32-character MD5 hash', () => {
     const dataId = generateDataId('test-kind', { test: 'value' });
     
     expect(dataId).toHaveLength(32);
@@ -76,14 +76,14 @@ describe('generateDataId', () => {
 });
 
 describe('getShard', () => {
-  it('应该返回 dataId 的前 2 位', () => {
+  it('should return first 2 characters of dataId', () => {
     expect(getShard('abcdef1234567890')).toBe('ab');
     expect(getShard('12345678')).toBe('12');
   });
 });
 
 describe('buildDataPath', () => {
-  it('应该构建正确的路径格式', () => {
+  it('should build correct path format', () => {
     const root = '/data';
     const kind = 'repo-clone';
     const dataId = 'abcdef1234567890abcdef1234567890';
@@ -95,7 +95,7 @@ describe('buildDataPath', () => {
 });
 
 describe('buildTempPath', () => {
-  it('应该构建临时路径（与正式路径同级）', () => {
+  it('should build temp path (at same level as formal path)', () => {
     const root = '/data';
     const kind = 'repo-clone';
     const dataId = 'abcdef1234567890abcdef1234567890';
@@ -106,7 +106,7 @@ describe('buildTempPath', () => {
   });
 });
 
-describe('manifest 操作', () => {
+describe('manifest operations', () => {
   let tempDir: string;
 
   beforeEach(async () => {
@@ -117,7 +117,7 @@ describe('manifest 操作', () => {
     await removeDir(tempDir);
   });
 
-  it('应该正确读写 manifest', async () => {
+  it('should correctly read and write manifest', async () => {
     const manifest = createManifest('test-kind', { key: 'value' }, { extra: 'data' });
     
     await writeManifest(tempDir, manifest);
@@ -132,12 +132,12 @@ describe('manifest 操作', () => {
   });
 });
 
-describe('dataLink 操作', () => {
+describe('dataLink operations', () => {
   let tempDir: string;
 
   beforeEach(async () => {
    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'fsdata-test-'));
-   // 创建 data-space/my-entry 目录（模拟实际结构）
+   // Create data-space/my-entry directory (simulate actual structure)
    await fs.mkdir(path.join(tempDir, 'data-space', 'my-entry'), { recursive: true });
  });
 
@@ -145,11 +145,11 @@ describe('dataLink 操作', () => {
     await removeDir(tempDir);
   });
 
-  it('应该创建和读取 dataLink（指向 data-space 下的 entry）', async () => {
+  it('should create and read dataLink (pointing to entry under data-space)', async () => {
     await createDataLink(tempDir, 'my-entry');
     const result = await readDataLink(tempDir);
     
-    // dataLink 指向 data-space/my-entry
+    // dataLink points to data-space/my-entry
     expect(result).toBe(path.join(tempDir, 'data-space', 'my-entry'));
   });
 });
@@ -165,14 +165,14 @@ describe('fsDataExists', () => {
     await removeDir(tempDir);
   });
 
-  it('有 manifest 时返回 true', async () => {
+  it('should return true when manifest exists', async () => {
     const manifest = createManifest('test', {});
     await writeManifest(tempDir, manifest);
     
     expect(await fsDataExists(tempDir)).toBe(true);
   });
 
-  it('无 manifest 时返回 false', async () => {
+  it('should return false when manifest does not exist', async () => {
     expect(await fsDataExists(tempDir)).toBe(false);
   });
 });
@@ -188,7 +188,7 @@ describe('atomicRename', () => {
     await removeDir(tempDir);
   });
 
-  it('rename 成功时返回 true', async () => {
+  it('should return true when rename succeeds', async () => {
     const source = path.join(tempDir, 'source');
     const target = path.join(tempDir, 'target');
     await fs.mkdir(source);
@@ -200,4 +200,3 @@ describe('atomicRename', () => {
     expect(await fs.readFile(path.join(target, 'test.txt'), 'utf-8')).toBe('content');
   });
 });
-

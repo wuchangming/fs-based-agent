@@ -1,5 +1,5 @@
 /**
- * FsContextEngine 测试
+ * FsContextEngine tests
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -22,8 +22,8 @@ describe('FsContextEngine', () => {
     await removeDir(testRoot);
   });
 
-  describe('createExecutor 基础功能', () => {
-    it('应该创建一个可调用的 executor', async () => {
+  describe('createExecutor basic functionality', () => {
+    it('should create a callable executor', async () => {
       const testExecutor = engine.createExecutor({
         kind: 'test-executor',
         fn: async (input, dataDir) => {
@@ -38,7 +38,7 @@ describe('FsContextEngine', () => {
       expect(typeof testExecutor.config).toBe('function');
     });
 
-    it('应该执行 fn 并返回 entry 路径', async () => {
+    it('should execute fn and return entry path', async () => {
       const testExecutor = engine.createExecutor({
         kind: 'test-executor',
         fn: async (input: { name: string }, dataDir) => {
@@ -50,16 +50,16 @@ describe('FsContextEngine', () => {
 
       const resultPath = await testExecutor({ input: { name: 'World' } });
 
-      // 验证返回的路径存在
+      // Verify returned path exists
       const stat = await fs.stat(resultPath);
       expect(stat.isDirectory()).toBe(true);
 
-      // 验证内容
+      // Verify content
       const content = await fs.readFile(path.join(resultPath, 'result.txt'), 'utf-8');
       expect(content).toBe('Hello World');
     });
 
-    it('应该写入正确的 manifest', async () => {
+    it('should write correct manifest', async () => {
       const testExecutor = engine.createExecutor({
         kind: 'test-kind',
         fn: async (input: { key: string }, dataDir) => {
@@ -70,7 +70,7 @@ describe('FsContextEngine', () => {
 
       await testExecutor({ input: { key: 'value' } });
 
-      // 读取 manifest
+      // Read manifest
       const dataId = generateDataId('test-kind', { key: 'value' });
       const dataPath = buildDataPath(testRoot, 'test-kind', dataId);
       const manifest = await readManifest(dataPath);
@@ -81,8 +81,8 @@ describe('FsContextEngine', () => {
     });
   });
 
-  describe('缓存机制', () => {
-    it('相同 input 应该使用缓存（不重复执行 fn）', async () => {
+  describe('cache mechanism', () => {
+    it('should use cache for same input (not re-execute fn)', async () => {
       let callCount = 0;
 
       const testExecutor = engine.createExecutor({
@@ -94,21 +94,21 @@ describe('FsContextEngine', () => {
         },
       });
 
-      // 第一次调用
+      // First call
       const path1 = await testExecutor({ input: { id: 'same' } });
       expect(callCount).toBe(1);
 
-      // 第二次调用（相同 input）
+      // Second call (same input)
       const path2 = await testExecutor({ input: { id: 'same' } });
-      expect(callCount).toBe(1); // fn 不应该再次执行
+      expect(callCount).toBe(1); // fn should not execute again
       expect(path1).toBe(path2);
 
-      // 验证内容是第一次的结果
+      // Verify content is from first execution
       const content = await fs.readFile(path1, 'utf-8');
       expect(content).toBe('call-1');
     });
 
-    it('不同 input 应该分别执行', async () => {
+    it('should execute separately for different inputs', async () => {
       let callCount = 0;
 
       const testExecutor = engine.createExecutor({
@@ -126,7 +126,7 @@ describe('FsContextEngine', () => {
       expect(callCount).toBe(2);
     });
 
-    it('skipCache=true 应该强制执行', async () => {
+    it('should force execution when skipCache=true', async () => {
       let callCount = 0;
 
       const testExecutor = engine.createExecutor({
@@ -138,18 +138,18 @@ describe('FsContextEngine', () => {
         },
       });
 
-      // 第一次调用
+      // First call
       await testExecutor({ input: { id: 'test' } });
       expect(callCount).toBe(1);
 
-      // 第二次调用（skipCache）
+      // Second call (skipCache)
       await testExecutor({ input: { id: 'test' }, skipCache: true });
       expect(callCount).toBe(2);
     });
   });
 
-  describe('get() 方法', () => {
-    it('缓存存在时返回路径', async () => {
+  describe('get() method', () => {
+    it('should return path when cache exists', async () => {
       const testExecutor = engine.createExecutor({
         kind: 'get-test',
         fn: async (input: { id: string }, dataDir) => {
@@ -164,14 +164,14 @@ describe('FsContextEngine', () => {
       expect(result).not.toBeNull();
     });
 
-    it('缓存不存在时返回 null', async () => {
+    it('should return null when cache does not exist', async () => {
       const result = await engine.get('nonexistent-kind', { id: 'nonexistent' });
       expect(result).toBeNull();
     });
   });
 
-  describe('remove() 方法', () => {
-    it('应该删除缓存', async () => {
+  describe('remove() method', () => {
+    it('should delete cache', async () => {
       const testExecutor = engine.createExecutor({
         kind: 'remove-test',
         fn: async (input: { id: string }, dataDir) => {
@@ -182,25 +182,25 @@ describe('FsContextEngine', () => {
 
       await testExecutor({ input: { id: 'to-remove' } });
 
-      // 验证缓存存在
+      // Verify cache exists
       expect(await engine.get('remove-test', { id: 'to-remove' })).not.toBeNull();
 
-      // 删除
+      // Delete
       await engine.remove('remove-test', { id: 'to-remove' });
 
-      // 验证缓存已删除
+      // Verify cache is deleted
       expect(await engine.get('remove-test', { id: 'to-remove' })).toBeNull();
     });
 
-    it('删除不存在的缓存应该静默成功（幂等）', async () => {
-      // 不应该抛错
+    it('should silently succeed when deleting non-existent cache (idempotent)', async () => {
+      // Should not throw
       await expect(engine.remove('nonexistent', { id: 'nonexistent' })).resolves.toBeUndefined();
     });
   });
 
-  describe('deps 功能', () => {
-    it('应该正确挂载依赖的 executor', async () => {
-      // 创建数据源 executor
+  describe('deps functionality', () => {
+    it('should correctly mount dependent executor', async () => {
+      // Create data source executor
       const dataSource = engine.createExecutor({
         kind: 'data-source',
         fn: async (input: { content: string }, dataDir) => {
@@ -209,14 +209,14 @@ describe('FsContextEngine', () => {
         },
       });
 
-      // 创建使用 dep 的 executor
+      // Create executor that uses dep
       const processor = engine.createExecutor({
         kind: 'processor',
         deps: {
           'inputs/data': dataSource.config({ input: { content: 'Hello from source' } }),
         },
         fn: async (input: { suffix: string }, dataDir) => {
-          // 读取 dep 的数据
+          // Read dep's data
           const sourceContent = await fs.readFile(path.join(dataDir, 'inputs/data'), 'utf-8');
           const result = `${sourceContent} - ${input.suffix}`;
           
@@ -228,12 +228,12 @@ describe('FsContextEngine', () => {
 
       const resultPath = await processor({ input: { suffix: 'processed' } });
 
-      // 验证结果
+      // Verify result
       const content = await fs.readFile(path.join(resultPath, 'result.txt'), 'utf-8');
       expect(content).toBe('Hello from source - processed');
     });
 
-    it('deps 的缓存应该独立工作', async () => {
+    it('should have independent cache for deps', async () => {
       let sourceCallCount = 0;
 
       const dataSource = engine.createExecutor({
@@ -270,11 +270,11 @@ describe('FsContextEngine', () => {
       await processor1({ input: {} });
       await processor2({ input: {} });
 
-      // dataSource 应该只执行一次（相同 input 使用缓存）
+      // dataSource should only execute once (same input uses cache)
       expect(sourceCallCount).toBe(1);
     });
 
-    it('dep 被删除后应该自动重新拉取', async () => {
+    it('should auto-recover when dep is deleted', async () => {
       let sourceCallCount = 0;
       let processorCallCount = 0;
 
@@ -300,36 +300,36 @@ describe('FsContextEngine', () => {
         },
       });
 
-      // 第一次执行
+      // First execution
       const result1 = await processor({ input: {} });
       expect(sourceCallCount).toBe(1);
       expect(processorCallCount).toBe(1);
 
-      // 验证结果
+      // Verify result
       const content1 = await fs.readFile(result1, 'utf-8');
       expect(content1).toBe('processed: source-call-1');
 
-      // 删除 dataSource 的缓存
+      // Delete dataSource's cache
       await engine.remove('recoverable-source', { id: 'recover-test' });
 
-      // 第二次执行 processor（使用缓存，但 dep 失效）
+      // Second execution of processor (uses cache, but dep is invalid)
       const result2 = await processor({ input: {} });
       
-      // processor 的 fn 不应该重新执行（使用缓存）
+      // processor's fn should not re-execute (uses cache)
       expect(processorCallCount).toBe(1);
       
-      // 但 dataSource 应该重新执行（自动恢复）
+      // But dataSource should re-execute (auto-recover)
       expect(sourceCallCount).toBe(2);
 
-      // 结果路径应该相同
+      // Result path should be the same
       expect(result2).toBe(result1);
 
-      // 验证 dep 恢复后内容有效
+      // Verify dep content is valid after recovery
       const content2 = await fs.readFile(result2, 'utf-8');
-      expect(content2).toBe('processed: source-call-1'); // 内容来自 processor 的缓存
+      expect(content2).toBe('processed: source-call-1'); // Content from processor's cache
     });
 
-    it('deps 配置变化后应该使用新的 dep 数据', async () => {
+    it('should use new dep data when deps config changes', async () => {
       let sourceCallCount = 0;
 
       const dataSource = engine.createExecutor({
@@ -341,7 +341,7 @@ describe('FsContextEngine', () => {
         },
       });
 
-      // 第一次：deps 配置指向 version: 'v1'
+      // First time: deps config points to version: 'v1'
       const processor1 = engine.createExecutor({
         kind: 'config-change-processor',
         deps: {
@@ -359,12 +359,12 @@ describe('FsContextEngine', () => {
       const content1 = await fs.readFile(result1, 'utf-8');
       expect(content1).toBe('got: version-v1');
 
-      // 第二次：模拟 deps 配置变化（指向 version: 'v2'）
-      // 注意：这里重新 createExecutor 模拟代码变更
+      // Second time: simulate deps config change (points to version: 'v2')
+      // Note: re-createExecutor here to simulate code change
       const processor2 = engine.createExecutor({
-        kind: 'config-change-processor',  // 同样的 kind
+        kind: 'config-change-processor',  // Same kind
         deps: {
-          'inputs/data': dataSource.config({ input: { version: 'v2' } }),  // 配置变了！
+          'inputs/data': dataSource.config({ input: { version: 'v2' } }),  // Config changed!
         },
         fn: async (_input, dataDir) => {
           const sourceContent = await fs.readFile(path.join(dataDir, 'inputs/data'), 'utf-8');
@@ -373,20 +373,20 @@ describe('FsContextEngine', () => {
         },
       });
 
-      // 执行（processor 缓存命中，但 deps 配置变了）
+      // Execute (processor cache hit, but deps config changed)
       const result2 = await processor2({ input: {} });
       
-      // dataSource 应该再次执行（因为 v2 是新的 input）
+      // dataSource should execute again (because v2 is new input)
       expect(sourceCallCount).toBe(2);
       
-      // 验证 dep 链接已更新，指向新数据
+      // Verify dep link is updated, points to new data
       const depContent = await fs.readFile(path.join(path.dirname(result2), 'inputs/data'), 'utf-8');
       expect(depContent).toBe('version-v2');
     });
   });
 
-  describe('.config() 方法', () => {
-    it('应该返回正确的配置对象', () => {
+  describe('.config() method', () => {
+    it('should return correct config object', () => {
       const testExecutor = engine.createExecutor({
         kind: 'config-test',
         fn: async (_input, dataDir) => {
@@ -403,8 +403,8 @@ describe('FsContextEngine', () => {
     });
   });
 
-  describe('错误处理', () => {
-    it('fn 抛错时应该清理临时目录（cleanTempOnError=true）', async () => {
+  describe('error handling', () => {
+    it('should clean temp directory when fn throws (cleanTempOnError=true)', async () => {
       const errorEngine = new FsContextEngine({ root: testRoot, cleanTempOnError: true });
 
       const errorExecutor = errorEngine.createExecutor({
@@ -416,16 +416,15 @@ describe('FsContextEngine', () => {
 
       await expect(errorExecutor({ input: { id: 'error' } })).rejects.toThrow('Test error');
 
-      // 验证没有残留的临时目录
+      // Verify no residual temp directory
       const kindDir = path.join(testRoot, 'fs-data', '1.0.0', 'error-test');
       try {
         const files = await fs.readdir(kindDir, { recursive: true });
         const tmpFiles = files.filter((f) => f.toString().includes('.tmp-'));
         expect(tmpFiles.length).toBe(0);
       } catch {
-        // 目录不存在也是正常的
+        // Directory not existing is also normal
       }
     });
   });
 });
-

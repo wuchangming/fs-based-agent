@@ -1,97 +1,96 @@
 /**
- * FsContextEngine 类型定义
+ * FsContextEngine type definitions
  */
 
 /**
- * FsData manifest 文件结构
+ * FsData manifest file structure
  */
 export interface FsDataManifest {
-  /** manifest 版本 */
+  /** Manifest version */
   manifestVersion: string;
-  /** 数据类型 */
+  /** Data type */
   kind: string;
-  /** 缓存 key（执行时的 input） */
+  /** Cache key (input at execution time) */
   input: Record<string, unknown>;
-  /** 用户自定义元数据 */
+  /** User-defined metadata */
   metadata: Record<string, unknown>;
-  /** 首次创建时间 */
+  /** First creation time */
   createdAt: string;
-  /** 最后更新时间 */
+  /** Last update time */
   updatedAt: string;
 }
 
 /**
- * fn 执行结果
+ * fn execution result
  */
 export interface FnResult {
-  /** 入口相对路径（相对于 dataDir） */
+  /** Entry relative path (relative to dataDir) */
   entry: string;
-  /** 可选的元数据 */
+  /** Optional metadata */
   metadata?: Record<string, unknown>;
 }
 
 /**
- * Executor 调用参数
+ * Executor call parameters
  */
 export interface ExecuteParams<TInput> {
-  /** 输入参数（同时作为缓存 key） */
+  /** Input parameters (also used as cache key) */
   input: TInput;
-  /** 是否跳过缓存，强制执行 */
+  /** Whether to skip cache, force execution */
   skipCache?: boolean;
 }
 
 /**
- * Executor 配置对象（.config() 返回，用于 deps）
+ * Executor config object (returned by .config(), used for deps)
  */
 export interface ExecutorConfig<TInput> {
-  /** 数据类型 */
+  /** Data type */
   kind: string;
-  /** 输入参数 */
+  /** Input parameters */
   input: TInput;
-  /** 是否跳过缓存 */
+  /** Whether to skip cache */
   skipCache?: boolean;
 }
 
 /**
- * Executor 接口
+ * Executor interface
  */
 export interface Executor<TInput> {
-  /** 执行并返回 dataLink 指向的路径 */
+  /** Execute and return path pointed to by dataLink */
   (params: ExecuteParams<TInput>): Promise<string>;
-  /** 返回配置对象（用于 deps） */
+  /** Return config object (used for deps) */
   config(params: ExecuteParams<TInput>): ExecutorConfig<TInput>;
-  /** 数据类型 */
+  /** Data type */
   kind: string;
 }
 
 /**
- * createExecutor 参数
+ * createExecutor parameters
  */
 export interface CreateExecutorParams<TInput> {
-  /** 数据类型 */
+  /** Data type */
   kind: string;
-  /** 依赖项（workspace executor） */
+  /** Dependencies (workspace executor) */
   deps?: Record<string, ExecutorConfig<unknown>>;
-  /** 执行函数 */
+  /** Execution function */
   fn: (input: TInput, dataDir: string) => Promise<FnResult>;
 }
 
 /**
- * FsContextEngine 配置
+ * FsContextEngine configuration
  */
 export interface FsContextEngineOptions {
-  /** 数据根目录 */
+  /** Data root directory */
   root: string;
-  /** 出错时是否清理临时目录，默认 true */
+  /** Whether to clean temp directory on error, default true */
   cleanTempOnError?: boolean;
 }
 
 /**
- * 内部使用：注册的 executor 信息
+ * Internal use: registered executor info
  */
 export interface RegisteredExecutor {
   kind: string;
   deps?: Record<string, ExecutorConfig<unknown>>;
   fn: (input: unknown, dataDir: string) => Promise<FnResult>;
 }
-

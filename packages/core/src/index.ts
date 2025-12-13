@@ -1,10 +1,10 @@
 /**
- * FsContextEngine - 统一的缓存/幂等基础设施
+ * FsContextEngine - Unified cache/idempotent infrastructure
  *
- * 核心理念：
- * - 相同 input → 相同结果
- * - 一切皆 FsData
- * - 统一的 Executor 模型
+ * Core concepts:
+ * - Same input → same result
+ * - Everything is FsData
+ * - Unified Executor model
  */
 
 export { FsContextEngine } from './engine.js';

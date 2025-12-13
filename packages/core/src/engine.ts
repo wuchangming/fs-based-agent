@@ -1,5 +1,5 @@
 /**
- * FsContextEngine 主类
+ * FsContextEngine main class
  */
 
 import * as fs from 'fs/promises';
@@ -39,26 +39,26 @@ export class FsContextEngine {
   }
 
   /**
-   * 创建 Executor
+   * Create Executor
    */
   createExecutor<TInput extends Record<string, unknown>>(
     params: CreateExecutorParams<TInput>
   ): Executor<TInput> {
     const { kind, deps, fn } = params;
 
-    // 注册 executor
+    // Register executor
     this.executors.set(kind, {
       kind,
       deps: deps ?? {},
       fn: fn as (input: unknown, dataDir: string) => Promise<FnResult>,
     });
 
-    // 创建 executor 函数
+    // Create executor function
     const executor = async (executeParams: ExecuteParams<TInput>): Promise<string> => {
       return this.execute(kind, executeParams, deps, fn);
     };
 
-    // 添加 config 方法
+    // Add config method
     executor.config = (configParams: ExecuteParams<TInput>): ExecutorConfig<TInput> => {
       return {
         kind,
@@ -67,15 +67,15 @@ export class FsContextEngine {
       };
     };
 
-    // 添加 kind 属性
+    // Add kind property
     executor.kind = kind;
 
     return executor as Executor<TInput>;
   }
 
   /**
-   * 只读取缓存（不执行）
-   * @returns dataLink 指向的路径，或 null（不存在）
+   * Read cache only (without execution)
+   * @returns Path pointed to by dataLink, or null (if not exists)
    */
   async get(kind: string, input: Record<string, unknown>): Promise<string | null> {
     const dataId = generateDataId(kind, input);
@@ -88,7 +88,7 @@ export class FsContextEngine {
   }
 
   /**
-   * 删除缓存（幂等，不存在时静默成功）
+   * Delete cache (idempotent, silently succeeds if not exists)
    */
   async remove(kind: string, input: Record<string, unknown>): Promise<void> {
     const dataId = generateDataId(kind, input);
@@ -97,7 +97,7 @@ export class FsContextEngine {
   }
 
   /**
-   * 内部执行逻辑
+   * Internal execution logic
    */
   private async execute<TInput extends Record<string, unknown>>(
     kind: string,
@@ -109,13 +109,13 @@ export class FsContextEngine {
     const dataId = generateDataId(kind, input as Record<string, unknown>);
     const dataPath = buildDataPath(this.root, kind, dataId);
 
-    // 检查缓存
+    // Check cache
     if (await fsDataExists(dataPath)) {
       if (skipCache) {
-        // skipCache 时先删除旧缓存，否则 rename 会因目标非空而失败
+        // When skipCache, delete old cache first, otherwise rename will fail due to non-empty target
         await removeDir(dataPath);
       } else {
-        // 命中缓存，如果有 deps，检查并恢复失效的 deps
+        // Cache hit, if there are deps, check and recover invalid deps
         if (deps) {
           await this.recoverInvalidDeps(dataPath, deps);
         }
@@ -123,43 +123,43 @@ export class FsContextEngine {
       }
     }
 
-    // 创建临时目录
+    // Create temp directory
     const tempPath = buildTempPath(this.root, kind, dataId);
     await fs.mkdir(tempPath, { recursive: true });
 
-    // 创建 data-space 目录（fn 的工作目录）
+    // Create data-space directory (fn's working directory)
     const dataSpacePath = `${tempPath}/${DATA_SPACE_DIRNAME}`;
     await fs.mkdir(dataSpacePath, { recursive: true });
 
     try {
-      // 处理 deps（挂载到 data-space 内）
+      // Process deps (mount to data-space)
       if (deps) {
         await this.processDeps(dataSpacePath, deps);
       }
 
-      // 执行 fn（传入 data-space 路径）
+      // Execute fn (pass data-space path)
       const result = await fn(input, dataSpacePath);
 
-      // 写入 manifest
+      // Write manifest
       const manifest = createManifest(kind, input as Record<string, unknown>, result.metadata || {});
       await writeManifest(tempPath, manifest);
 
-      // 创建 dataLink
+      // Create dataLink
       await createDataLink(tempPath, result.entry);
 
-      // 原子 rename
+      // Atomic rename
       const renamed = await atomicRename(tempPath, dataPath);
 
       if (!renamed) {
-        // rename 失败，目标已存在（并发情况）
-        // 删除临时目录，使用已有结果
+        // Rename failed, target already exists (concurrent scenario)
+        // Delete temp directory, use existing result
         await removeDir(tempPath);
       }
 
-      // 返回 dataLink 路径
+      // Return dataLink path
       return readDataLink(dataPath);
     } catch (err) {
-      // 出错时清理临时目录
+      // Clean up temp directory on error
       if (this.cleanTempOnError) {
         await removeDir(tempPath);
       }
@@ -168,7 +168,7 @@ export class FsContextEngine {
   }
 
   /**
-   * 处理 deps：执行每个 dep 的 executor，创建软链接
+   * Process deps: execute each dep's executor, create symlinks
    */
   private async processDeps(
     tempPath: string,
@@ -177,13 +177,13 @@ export class FsContextEngine {
     for (const [depPath, config] of Object.entries(deps)) {
       const { kind, input, skipCache } = config;
 
-      // 查找注册的 executor
+      // Find registered executor
       const registered = this.executors.get(kind);
       if (!registered) {
         throw new Error(`Executor not found for kind: ${kind}`);
       }
 
-      // 执行 dep 的 executor（确保数据已生成）
+      // Execute dep's executor (ensure data is generated)
       await this.execute(
         kind,
         { input: input as Record<string, unknown>, skipCache: skipCache ?? false },
@@ -191,19 +191,19 @@ export class FsContextEngine {
         registered.fn as (input: Record<string, unknown>, dataDir: string) => Promise<FnResult>
       );
 
-      // 获取 dep 的 FsData 目录路径
+      // Get dep's FsData directory path
       const depDataId = generateDataId(kind, input as Record<string, unknown>);
       const depFsDataPath = buildDataPath(this.root, kind, depDataId);
 
-      // 创建软链接
+      // Create symlink
       const fullDepPath = `${tempPath}/${depPath}`;
       await createDepLink(fullDepPath, depFsDataPath);
     }
   }
 
   /**
-   * 检查并恢复失效的 deps
-   * 失效情况：1) 软链接目标不存在  2) 软链接指向错误目标（deps 配置变化）
+   * Check and recover invalid deps
+   * Invalid cases: 1) symlink target does not exist  2) symlink points to wrong target (deps config changed)
    */
   private async recoverInvalidDeps(
     dataPath: string,
@@ -214,7 +214,7 @@ export class FsContextEngine {
     for (const [depPath, config] of Object.entries(deps)) {
       const linkPath = `${dataSpacePath}/${depPath}`;
 
-      // 计算期望的目标路径
+      // Calculate expected target path
       const expectedDataId = generateDataId(config.kind, config.input as Record<string, unknown>);
       const expectedFsDataPath = buildDataPath(this.root, config.kind, expectedDataId);
       const expectedTarget = computeDepLinkTarget(linkPath, expectedFsDataPath);
@@ -222,23 +222,23 @@ export class FsContextEngine {
       let needRecover = false;
 
       try {
-        // 检查软链接是否存在
+        // Check if symlink exists
         const actualTarget = await fs.readlink(linkPath);
 
         if (actualTarget !== expectedTarget) {
-          // 软链接指向错误目标（deps 配置变化）
+          // Symlink points to wrong target (deps config changed)
           needRecover = true;
         } else {
-          // 软链接目标正确，检查目标数据是否存在
+          // Symlink target is correct, check if target data exists
           await fs.stat(linkPath);
         }
       } catch {
-        // 软链接不存在或目标不存在
+        // Symlink does not exist or target does not exist
         needRecover = true;
       }
 
       if (needRecover) {
-        // 重新执行 dep 的 executor
+        // Re-execute dep's executor
         const registered = this.executors.get(config.kind);
         if (registered) {
           await this.execute(
@@ -248,11 +248,11 @@ export class FsContextEngine {
             registered.fn as (input: Record<string, unknown>, dataDir: string) => Promise<FnResult>
           );
 
-          // 删除旧的软链接，创建新的
+          // Delete old symlink, create new one
           try {
             await fs.unlink(linkPath);
           } catch {
-            // 软链接可能不存在，忽略
+            // Symlink may not exist, ignore
           }
           await createDepLink(linkPath, expectedFsDataPath);
         }
@@ -260,4 +260,3 @@ export class FsContextEngine {
     }
   }
 }
-
