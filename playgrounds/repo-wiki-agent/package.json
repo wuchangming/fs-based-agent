@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc"
+    "clean": "rimraf dist",
+    "build": "pnpm clean && tsc"
   },
   "license": "MIT"
 }
