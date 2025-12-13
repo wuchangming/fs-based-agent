@@ -2,10 +2,11 @@ import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { shouldIgnore } from "../utils/ignorePatterns.js";
+import { shouldIgnore } from "./utils/ignorePatterns.js";
 
 export interface ReadFileToolParams {
     rootPath: string;
+    additionalIgnorePatterns?: string[];
 }
 
 const DEFAULT_MAX_LINES = 2000;
@@ -14,7 +15,7 @@ const MAX_LINE_LENGTH = 2000;
 /**
  * Create a tool for reading file contents
  */
-export function createReadFileTool({ rootPath }: ReadFileToolParams) {
+export function createReadFileTool({ rootPath, additionalIgnorePatterns = [] }: ReadFileToolParams) {
     return tool(
         async ({ file_path, offset, limit }) => {
             try {
@@ -28,7 +29,7 @@ export function createReadFileTool({ rootPath }: ReadFileToolParams) {
                 
                 // Check if file should be ignored
                 const relativePath = path.relative(rootPath, resolvedPath);
-                if (shouldIgnore(relativePath)) {
+                if (shouldIgnore(relativePath, additionalIgnorePatterns)) {
                     return `Error: File '${file_path}' is in an ignored directory or matches ignore patterns`;
                 }
                 
@@ -126,7 +127,7 @@ Usage examples:
 - Read next page: { file_path: "large.txt", offset: 100, limit: 100 }
 
 Features:
-- Automatically truncates files larger than 2000 lines
+- Automatically truncates files larger than ${DEFAULT_MAX_LINES} lines
 - Shows line numbers for easy reference
 - Detects and rejects binary files
 - Provides instructions for reading more content when truncated
@@ -134,7 +135,7 @@ Features:
 Limitations:
 - Only reads text files (UTF-8 encoded)
 - Binary files are rejected
-- Very long lines (>10,000 chars) are truncated`,
+- Very long lines (>${MAX_LINE_LENGTH.toLocaleString()} chars) are truncated`,
             schema: z.object({
                 file_path: z
                     .string()

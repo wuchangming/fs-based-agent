@@ -5,23 +5,20 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "tsx src/cli.ts",
     "build": "tsc"
   },
   "author": "wuchangming",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^24.10.1",
-    "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@langchain/core": "^1.0.6",
-    "@langchain/langgraph": "^1.0.2",
-    "@langchain/openai": "^1.1.2",
-    "commander": "^14.0.2",
+    "@langchain/core": "^1.1.5",
+    "@langchain/langgraph": "^1.0.4",
     "glob": "^11.0.3",
-    "langchain": "^1.0.5",
+    "langchain": "^1.2.0",
+    "vitest": "^4.0.15",
     "zod": "^4.1.12"
   }
 }
