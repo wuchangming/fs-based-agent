@@ -7,7 +7,7 @@ if (process.env.REPO_URL && process.env.BRANCH) {
         repoUrl: process.env.REPO_URL,
         branch: process.env.BRANCH,
     }).then((result) => {
-        // 用 node 执行 npx mdts result.wikiOutputPath
+        // Execute npx mdts result.wikiOutputPath using node
         const { wikiOutputPath } = result;
         const command = `npx mdts ${wikiOutputPath}`;
         const child = spawnSync(command, { shell: true });
