@@ -15,6 +15,7 @@ import {
     WIKI_GENERATION_PROMPT,
 } from "./repoWikiAgent.propmt.js";
 import { FS_DATA_FOLDER } from "./constants.js";
+import { uniqueIdMiddleware } from "./fix/uniqueIdMiddleware.js";
 
 export interface RepoWikiAgentOptions {
     repoUrl: string;
@@ -70,6 +71,7 @@ export async function runRepoWikiAgent(
     const agent = createAgent({
         model: getLLM(),
         tools,
+        middleware: [uniqueIdMiddleware]
     });
 
     // Run the agent
