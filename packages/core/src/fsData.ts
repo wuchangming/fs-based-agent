@@ -91,7 +91,12 @@ export async function fsDataExists(dataPath: string): Promise<boolean> {
 export async function readManifest(dataPath: string): Promise<FsDataManifest> {
   const manifestPath = path.join(dataPath, MANIFEST_FILENAME);
   const content = await fs.readFile(manifestPath, 'utf-8');
-  return JSON.parse(content) as FsDataManifest;
+  try {
+    return JSON.parse(content) as FsDataManifest;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`Failed to parse manifest at ${manifestPath}: ${message}`);
+  }
 }
 
 /**
@@ -110,7 +115,7 @@ export async function writeManifest(dataPath: string, manifest: FsDataManifest):
 export async function createDataLink(dataPath: string, entry: string): Promise<void> {
   const linkPath = path.join(dataPath, DATA_LINK_FILENAME);
   // Use relative path, pointing to entry under data-space
-  const target = `./${DATA_SPACE_DIRNAME}/${entry}`;
+  const target = path.join(DATA_SPACE_DIRNAME, entry);
   await fs.symlink(target, linkPath);
 }
 

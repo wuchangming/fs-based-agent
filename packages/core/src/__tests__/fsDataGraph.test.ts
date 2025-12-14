@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { FsContextEngine } from '../engine.js';
 import { listFsDataNodes } from '../fsDataGraph.js';
-import { removeDir } from '../fsData.js';
+import { removeDir, FS_DATA_VERSION, MANIFEST_FILENAME, createManifest, writeManifest } from '../fsData.js';
 
 describe('listFsDataNodes', () => {
   let tempRoot: string;
@@ -50,5 +50,32 @@ describe('listFsDataNodes', () => {
     expect(parentNode?.manifest.input).toEqual({ message: 'hello' });
     expect(parentNode?.deps).toHaveLength(1);
     expect(parentNode?.deps[0]?.targetKind).toBe('leaf');
+  });
+
+  it('should ignore lingering temp dirs', async () => {
+    const engine = new FsContextEngine({ root: tempRoot });
+    const ex = engine.createExecutor({
+      kind: 'leaf',
+      fn: async (_, dataDir) => {
+        await fs.writeFile(path.join(dataDir, 'leaf.txt'), 'leaf');
+        return { entry: 'leaf.txt' };
+      },
+    });
+
+    await ex({ input: {} });
+
+    const tmpDir = path.join(
+      tempRoot,
+      'fs-data',
+      FS_DATA_VERSION,
+      'leaf',
+      '00',
+      '.tmp-deadbeef-deadbeef'
+    );
+    await fs.mkdir(tmpDir, { recursive: true });
+    await writeManifest(tmpDir, createManifest('leaf', {}));
+
+    const nodes = await listFsDataNodes(tempRoot);
+    expect(nodes.map((n) => n.dataId)).not.toContain('.tmp-deadbeef-deadbeef');
   });
 });

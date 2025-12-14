@@ -103,7 +103,12 @@ export async function readFsDataNode(
     return null;
   }
 
-  const manifest = await readManifest(dataPath);
+  let manifest: FsDataNodeInfo['manifest'];
+  try {
+    manifest = await readManifest(dataPath);
+  } catch {
+    return null;
+  }
   let entryPath: string | null = null;
   try {
     entryPath = await readDataLink(dataPath);
@@ -162,6 +167,8 @@ export async function listFsDataNodes(root: string): Promise<FsDataNodeInfo[]> {
       for (const dataIdDir of dataIdDirs) {
         if (!dataIdDir.isDirectory()) continue;
         const dataId = dataIdDir.name;
+        // Ignore temp dirs created during execution (may linger after crashes).
+        if (dataId.startsWith('.tmp-')) continue;
         const node = await readFsDataNode(root, kind, dataId);
         if (node) {
           nodes.push(node);

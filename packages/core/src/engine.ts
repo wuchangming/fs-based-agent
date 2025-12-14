@@ -3,6 +3,7 @@
  */
 
 import * as fs from 'fs/promises';
+import * as path from 'path';
 import type {
   FsContextEngineOptions,
   CreateExecutorParams,
@@ -82,7 +83,7 @@ export class FsContextEngine {
     const dataPath = buildDataPath(this.root, kind, dataId);
 
     if (await fsDataExists(dataPath)) {
-      return readDataLink(dataPath);
+      return this.tryReadEntryPath(dataPath);
     }
     return null;
   }
@@ -115,11 +116,16 @@ export class FsContextEngine {
         // When skipCache, delete old cache first, otherwise rename will fail due to non-empty target
         await removeDir(dataPath);
       } else {
-        // Cache hit, if there are deps, check and recover invalid deps
-        if (deps) {
-          await this.recoverInvalidDeps(dataPath, deps);
+        const cachedEntry = await this.tryReadEntryPath(dataPath);
+        if (cachedEntry) {
+          // Cache hit, if there are deps, check and recover invalid deps
+          if (deps) {
+            await this.recoverInvalidDeps(dataPath, deps);
+          }
+          return cachedEntry;
         }
-        return readDataLink(dataPath);
+        // Cache is corrupted (missing dataLink/entry). Remove and rebuild.
+        await removeDir(dataPath);
       }
     }
 
@@ -128,7 +134,7 @@ export class FsContextEngine {
     await fs.mkdir(tempPath, { recursive: true });
 
     // Create data-space directory (fn's working directory)
-    const dataSpacePath = `${tempPath}/${DATA_SPACE_DIRNAME}`;
+    const dataSpacePath = path.join(tempPath, DATA_SPACE_DIRNAME);
     await fs.mkdir(dataSpacePath, { recursive: true });
 
     try {
@@ -168,37 +174,56 @@ export class FsContextEngine {
   }
 
   /**
+   * Best-effort read of dataLink (and validate it exists on disk).
+   * Returns null when cache is incomplete/corrupted.
+   */
+  private async tryReadEntryPath(dataPath: string): Promise<string | null> {
+    try {
+      const entryPath = await readDataLink(dataPath);
+      await fs.stat(entryPath);
+      return entryPath;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Process deps: execute each dep's executor, create symlinks
    */
   private async processDeps(
     tempPath: string,
     deps: Record<string, ExecutorConfig<unknown>>
   ): Promise<void> {
-    for (const [depPath, config] of Object.entries(deps)) {
-      const { kind, input, skipCache } = config;
+    const entries = Object.entries(deps);
 
-      // Find registered executor
-      const registered = this.executors.get(kind);
-      if (!registered) {
-        throw new Error(`Executor not found for kind: ${kind}`);
-      }
+    // Execute deps concurrently (they are cacheable and guarded by atomic renames).
+    await Promise.all(
+      entries.map(async ([depPath, config]) => {
+        const { kind, input, skipCache } = config;
 
-      // Execute dep's executor (ensure data is generated)
-      await this.execute(
-        kind,
-        { input: input as Record<string, unknown>, skipCache: skipCache ?? false },
-        registered.deps,
-        registered.fn as (input: Record<string, unknown>, dataDir: string) => Promise<FnResult>
-      );
+        // Find registered executor
+        const registered = this.executors.get(kind);
+        if (!registered) {
+          throw new Error(`Executor not found for kind: ${kind}`);
+        }
 
-      // Get dep's FsData directory path
-      const depDataId = generateDataId(kind, input as Record<string, unknown>);
-      const depFsDataPath = buildDataPath(this.root, kind, depDataId);
+        // Execute dep's executor (ensure data is generated)
+        await this.execute(
+          kind,
+          { input: input as Record<string, unknown>, skipCache: skipCache ?? false },
+          registered.deps,
+          registered.fn as (input: Record<string, unknown>, dataDir: string) => Promise<FnResult>
+        );
 
-      // Create symlink
-      const fullDepPath = `${tempPath}/${depPath}`;
-      await createDepLink(fullDepPath, depFsDataPath);
-    }
+        // Get dep's FsData directory path
+        const depDataId = generateDataId(kind, input as Record<string, unknown>);
+        const depFsDataPath = buildDataPath(this.root, kind, depDataId);
+
+        // Create symlink under the current executor's data-space
+        const fullDepPath = path.join(tempPath, depPath);
+        await createDepLink(fullDepPath, depFsDataPath);
+      })
+    );
   }
 
   /**
@@ -209,10 +234,10 @@ export class FsContextEngine {
     dataPath: string,
     deps: Record<string, ExecutorConfig<unknown>>
   ): Promise<void> {
-    const dataSpacePath = `${dataPath}/${DATA_SPACE_DIRNAME}`;
+    const dataSpacePath = path.join(dataPath, DATA_SPACE_DIRNAME);
 
     for (const [depPath, config] of Object.entries(deps)) {
-      const linkPath = `${dataSpacePath}/${depPath}`;
+      const linkPath = path.join(dataSpacePath, depPath);
 
       // Calculate expected target path
       const expectedDataId = generateDataId(config.kind, config.input as Record<string, unknown>);
