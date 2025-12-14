@@ -17,7 +17,7 @@ export function createFsDataManagerRouter(manager: FsDataManager): express.Route
       const executors: ExecutorSummary[] = manager.listExecutors().map((ex) => {
         const summary: ExecutorSummary = {
           kind: ex.kind,
-          hasDeps: Boolean(ex.deps && Object.keys(ex.deps).length),
+          hasDeps: ex.hasDeps ?? Boolean(ex.deps && Object.keys(ex.deps).length),
         };
         if (ex.label !== undefined) summary.label = ex.label;
         if (ex.description !== undefined) summary.description = ex.description;

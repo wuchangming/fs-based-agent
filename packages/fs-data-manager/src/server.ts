@@ -1,5 +1,7 @@
 import express from 'express';
+import { existsSync } from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { createFsDataManagerRouter } from './router.js';
 import type { FsDataManager } from './manager.js';
 
@@ -8,6 +10,27 @@ interface ServerOptions {
   apiPath?: string;
   /** Optional static directory for the React dashboard (dist/client) */
   staticDir?: string | undefined;
+}
+
+function resolveBuiltClientDir(): string | undefined {
+  try {
+    const baseDir = path.dirname(fileURLToPath(import.meta.url));
+    const candidates = [
+      // When running from the built package (dist/server.js)
+      path.join(baseDir, 'client'),
+      // When running from source (src/server.ts)
+      path.join(baseDir, '..', 'dist', 'client'),
+    ];
+
+    for (const candidate of candidates) {
+      if (existsSync(path.join(candidate, 'index.html'))) {
+        return candidate;
+      }
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -20,9 +43,10 @@ export function startFsDataManagerServer(manager: FsDataManager, options: Server
   const apiPath = options.apiPath ?? '/api';
   app.use(apiPath, createFsDataManagerRouter(manager));
 
-  if (options.staticDir) {
-    app.use(express.static(options.staticDir));
-    app.get('*', (_req, res) => res.sendFile(path.join(options.staticDir!, 'index.html')));
+  const staticDir = options.staticDir ?? resolveBuiltClientDir();
+  if (staticDir) {
+    app.use(express.static(staticDir));
+    app.get('*', (_req, res) => res.sendFile(path.join(staticDir, 'index.html')));
   }
 
   const port = options.port ?? 4100;

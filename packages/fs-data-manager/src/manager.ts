@@ -3,6 +3,7 @@ import {
   type CreateExecutorParams,
   type Executor,
   type ExecuteParams,
+  type ExecutorConfig,
   listFsDataNodes,
 } from '@fs-based-agent/core';
 import type {
@@ -40,6 +41,50 @@ export class FsDataManager {
 
     this.registry.set(params.kind, record);
     return executor;
+  }
+
+  /**
+   * Register an executor whose deps are computed from the input at execution time.
+   * This is useful when you want `deps` to depend on input values (e.g. repoUrl/branch).
+   */
+  registerDynamicExecutor<TInput extends Record<string, unknown>>(
+    params: Omit<CreateExecutorParams<TInput>, 'deps'> &
+      Omit<ManagedExecutorMeta, 'deps'> & {
+        deps?: (input: TInput) => Record<string, ExecutorConfig<unknown>>;
+      }
+  ): Executor<TInput> {
+    const wrapper = (async (executeParams: ExecuteParams<TInput>): Promise<string> => {
+      const executorParams = params.deps
+        ? {
+            kind: params.kind,
+            deps: params.deps(executeParams.input),
+            fn: params.fn,
+          }
+        : {
+            kind: params.kind,
+            fn: params.fn,
+          };
+      const executor = this.engine.createExecutor<TInput>(executorParams);
+      return executor(executeParams);
+    }) as Executor<TInput>;
+
+    wrapper.kind = params.kind;
+    wrapper.config = (configParams: ExecuteParams<TInput>) => ({
+      kind: params.kind,
+      input: configParams.input,
+      skipCache: configParams.skipCache ?? false,
+    });
+
+    const record: ManagedExecutorMeta & { executor: Executor<unknown> } = {
+      kind: params.kind,
+      executor: wrapper as Executor<unknown>,
+      hasDeps: Boolean(params.deps),
+    };
+    if (params.label !== undefined) record.label = params.label;
+    if (params.description !== undefined) record.description = params.description;
+
+    this.registry.set(params.kind, record);
+    return wrapper;
   }
 
   /**

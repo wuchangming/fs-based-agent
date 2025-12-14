@@ -30,24 +30,25 @@ manager.registerExecutor({
   fn: async (_, dir) => ({ entry: '.' }),
 });
 
+// If deps depend on the runtime input, use registerDynamicExecutor:
+// manager.registerDynamicExecutor({
+//   kind: 'repo-wiki-context',
+//   deps: (input) => ({ repo: cloneRepo.config({ input: { url: input.repoUrl } }) }),
+//   fn: async (_, dir) => ({ entry: '.' }),
+// });
+
 const app = express();
 app.use(express.json());
 app.use('/api', createFsDataManagerRouter(manager));
 app.listen(4100, () => console.log('FsData manager API ready on :4100'));
 ```
 
-Or spin up a ready-to-serve combo (API + static dashboard) if you already built the UI:
+Or spin up a ready-to-serve combo (API + dashboard). If the UI is built (`dist/client` exists), it will be served automatically:
 
 ```ts
-import path from 'path';
-import { createRequire } from 'module';
 import { startFsDataManagerServer } from '@fs-based-agent/fs-data-manager';
 
-const require = createRequire(import.meta.url);
-const pkgRoot = path.dirname(require.resolve('@fs-based-agent/fs-data-manager/package.json'));
-const staticDir = path.join(pkgRoot, 'dist/client');
-
-startFsDataManagerServer(manager, { port: 4100, staticDir });
+startFsDataManagerServer(manager, { port: 4100, apiPath: '/api' });
 ```
 
 ### React dashboard
@@ -56,6 +57,7 @@ startFsDataManagerServer(manager, { port: 4100, staticDir });
 - `npm run build` (or `pnpm build`) builds static assets to `dist/client` for hosting.
 
 For a complete integration example (API + UI + demo executors), see `playgrounds/fs-data-manager-demo`.
+For a real-world DAG example, see `playgrounds/repo-wiki-agent-with-manager`.
 
 ### API surface
 - `GET /api/graph` → `{ graph, executors }` where `graph` is `{ nodes, edges }`.

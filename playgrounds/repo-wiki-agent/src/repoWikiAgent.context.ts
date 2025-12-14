@@ -1,11 +1,31 @@
 import { FsContextEngine } from "@fs-based-agent/core";
+import type { Executor, ExecutorConfig, FnResult } from "@fs-based-agent/core";
 import * as fs from "node:fs/promises";
 import { createGitCloneExecutor } from "./executors/gitClone.executor.js";
+import type { GitCloneInput } from "./executors/gitClone.executor.js";
 
 export interface RepoWikiContextInput {
     repoUrl: string;
     branch?: string | undefined;
     [key: string]: unknown;
+}
+
+export function createRepoWikiContextDeps(cloneRepo: Executor<GitCloneInput>) {
+    return (input: RepoWikiContextInput): Record<string, ExecutorConfig<unknown>> => {
+        const { repoUrl, branch } = input;
+        return {
+            repo: cloneRepo.config({
+                input: { url: repoUrl, branch },
+            }),
+        };
+    };
+}
+
+export function createRepoWikiContextFn(wikiOutputDir: string) {
+    return async (_input: RepoWikiContextInput, dataDir: string): Promise<FnResult> => {
+        await fs.mkdir(`${dataDir}/${wikiOutputDir}`, { recursive: true });
+        return { entry: "." };
+    };
 }
 
 
@@ -26,21 +46,11 @@ export function setupRepoWikiContext(
     const cloneRepo = createGitCloneExecutor(engine);
 
     return async (input: RepoWikiContextInput): Promise<string> => {
-        const { repoUrl, branch } = input;
-
         // Create executor with dynamic deps based on input
         const executor = engine.createExecutor({
             kind: "repo-wiki-context",
-            deps: {
-                repo: cloneRepo.config({
-                    input: { url: repoUrl, branch },
-                }),
-            },
-            fn: async (_, dataDir) => {
-                // Create wiki output directory in data-space
-                await fs.mkdir(`${dataDir}/${wikiOutputDir}`, { recursive: true });
-                return { entry: "." };
-            },
+            deps: createRepoWikiContextDeps(cloneRepo)(input),
+            fn: createRepoWikiContextFn(wikiOutputDir),
         });
 
         // Execute and return the context path

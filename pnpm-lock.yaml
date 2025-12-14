@@ -56,9 +56,6 @@ importers:
       rimraf:
         specifier: ^6.1.2
         version: 6.1.2
-      tsx:
-        specifier: ^4.21.0
-        version: 4.21.0
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -117,6 +114,25 @@ importers:
       zod:
         specifier: ^4.1.13
         version: 4.1.13
+
+  playgrounds/repo-wiki-agent-with-manager:
+    dependencies:
+      '@fs-based-agent/fs-data-manager':
+        specifier: workspace:*
+        version: link:../../packages/fs-data-manager
+      '@fs-based-agent/repo-wiki-agent':
+        specifier: workspace:*
+        version: link:../repo-wiki-agent
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.2.3
+    devDependencies:
+      tsx:
+        specifier: ^4.19.2
+        version: 4.21.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
 
 packages:
 

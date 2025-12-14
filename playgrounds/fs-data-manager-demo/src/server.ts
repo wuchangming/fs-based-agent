@@ -115,7 +115,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       kind: ex.kind,
       label: ex.label,
       description: ex.description,
-      hasDeps: Boolean(ex.deps && Object.keys(ex.deps).length),
+      hasDeps: ex.hasDeps ?? Boolean(ex.deps && Object.keys(ex.deps).length),
     }));
     return sendJson(res, 200, { graph, executors });
   }

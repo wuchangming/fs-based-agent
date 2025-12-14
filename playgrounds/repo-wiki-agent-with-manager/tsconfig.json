@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "paths": {
+      "@fs-based-agent/fs-data-manager": ["../../packages/fs-data-manager/src/index.ts"],
+      "@fs-based-agent/fs-data-manager/*": ["../../packages/fs-data-manager/src/*"],
+      "@fs-based-agent/repo-wiki-agent": ["../repo-wiki-agent/src/api.ts"],
+      "@fs-based-agent/repo-wiki-agent/*": ["../repo-wiki-agent/src/*"]
+    }
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../../packages/fs-data-manager" },
+    { "path": "../repo-wiki-agent" }
+  ]
+}

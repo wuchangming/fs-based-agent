@@ -5,6 +5,8 @@ export interface ManagedExecutorMeta {
   label?: string;
   description?: string;
   deps?: Record<string, ExecutorConfig<unknown>>;
+  /** For dynamic deps, use this to expose "deps enabled" in UI */
+  hasDeps?: boolean;
 }
 
 export interface FsDataGraphNode extends FsDataNodeInfo {

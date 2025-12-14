@@ -1,0 +1,17 @@
+{
+  "name": "repo-wiki-agent-with-manager",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/server.ts"
+  },
+  "dependencies": {
+    "@fs-based-agent/fs-data-manager": "workspace:*",
+    "@fs-based-agent/repo-wiki-agent": "workspace:*",
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.3"
+  }
+}
