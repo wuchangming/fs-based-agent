@@ -5,4 +5,4 @@ export const llm = new ChatOpenAI({
         baseURL: process.env.API_BASE_URL,
     },
     model: process.env.MODEL as string,
-})
+});

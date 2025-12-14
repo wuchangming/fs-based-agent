@@ -37,12 +37,21 @@ importers:
 
   playgrounds/repo-wiki-agent:
     dependencies:
+      '@fs-based-agent/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@fs-based-agent/langchain-tools':
+        specifier: workspace:*
+        version: link:../../packages/langchain-tools
       '@langchain/openai':
         specifier: ^1.2.0
         version: 1.2.0(@langchain/core@1.1.5(openai@6.10.0(zod@4.1.13)))
       langchain:
         specifier: ^1.2.0
         version: 1.2.0(@langchain/core@1.1.5(openai@6.10.0(zod@4.1.13)))(openai@6.10.0(zod@4.1.13))
+      zod:
+        specifier: ^4.1.13
+        version: 4.1.13
 
 packages:
 

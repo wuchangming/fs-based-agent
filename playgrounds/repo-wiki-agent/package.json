@@ -9,7 +9,10 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@fs-based-agent/core": "workspace:*",
+    "@fs-based-agent/langchain-tools": "workspace:*",
     "@langchain/openai": "^1.2.0",
-    "langchain": "^1.2.0"
+    "langchain": "^1.2.0",
+    "zod": "^4.1.13"
   }
 }
