@@ -54,21 +54,18 @@ export async function runRepoWikiAgent(
         branch,
     });
 
-    const repoPath = `${contextPath}/repo`;
-    const wikiOutputPath = `${contextPath}/wiki-output`;
+    console.log(`Context path: ${contextPath}`);
+    console.log(`Repository at: ${contextPath}/repo`);
+    console.log(`Wiki output at: ${contextPath}/wiki-output`);
 
-    console.log(`Repository cloned to: ${repoPath}`);
-    console.log(`Wiki will be generated to: ${wikiOutputPath}`);
-
-    // Create tools scoped to the context paths
+    // Create tools scoped to the context path
+    // The prompt tells the agent: repo is in ./repo, write wiki to ./wiki-output
     const tools = [
-        // Read tools scoped to repo
-        createLSTool({ rootPath: repoPath }),
-        createGrepTool({ rootPath: repoPath, outputMode: "content" }),
-        createGlobTool({ rootPath: repoPath }),
-        createReadFileTool({ rootPath: repoPath }),
-        // Write tool scoped to wiki output
-        createWriteFileTool({ rootPath: wikiOutputPath }),
+        createLSTool({ rootPath: contextPath }),
+        createGrepTool({ rootPath: contextPath, outputMode: "content" }),
+        createGlobTool({ rootPath: contextPath }),
+        createReadFileTool({ rootPath: contextPath }),
+        createWriteFileTool({ rootPath: contextPath }),
     ];
 
     // Create the agent
@@ -88,7 +85,7 @@ export async function runRepoWikiAgent(
     });
 
     console.log("Wiki generation completed!");
-    console.log(`Generated files available at: ${wikiOutputPath}`);
+    console.log(`Generated files available at: ${contextPath}/wiki-output`);
 
     // Log the last message from the agent
     const lastMessage = result.messages[result.messages.length - 1];
@@ -98,7 +95,7 @@ export async function runRepoWikiAgent(
     }
 
     return {
-        wikiOutputPath,
-        repoPath,
+        wikiOutputPath: `${contextPath}/wiki-output`,
+        repoPath: `${contextPath}/repo`,
     };
 }
