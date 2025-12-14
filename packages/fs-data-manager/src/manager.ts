@@ -6,19 +6,39 @@ import {
   type ExecutorConfig,
   listFsDataNodes,
 } from '@fs-based-agent/core';
+import type { ZodType, ZodTypeAny } from 'zod';
 import type {
   FsDataGraph,
   FsDataGraphEdge,
   FsDataGraphNode,
   ManagedExecutorMeta,
 } from './types.js';
+import { formatZodError, zodToExecutorInputSchema } from './inputSchema.js';
+
+export interface RegisterExecutorParams<TInput extends Record<string, unknown>>
+  extends CreateExecutorParams<TInput> {
+  label?: string;
+  description?: string;
+  inputSchema?: ZodType<TInput>;
+}
+
+export interface RegisterDynamicExecutorParams<TInput extends Record<string, unknown>>
+  extends Omit<CreateExecutorParams<TInput>, 'deps'> {
+  label?: string;
+  description?: string;
+  deps?: (input: TInput) => Record<string, ExecutorConfig<unknown>>;
+  inputSchema?: ZodType<TInput>;
+}
 
 /**
  * Service that wraps FsContextEngine with registry + graph helpers
  */
 export class FsDataManager {
   private readonly engine: FsContextEngine;
-  private readonly registry = new Map<string, ManagedExecutorMeta & { executor: Executor<unknown> }>();
+  private readonly registry = new Map<
+    string,
+    ManagedExecutorMeta & { executor: Executor<unknown>; inputZodSchema?: ZodTypeAny }
+  >();
 
   constructor(private readonly root: string) {
     this.engine = new FsContextEngine({ root });
@@ -27,19 +47,25 @@ export class FsDataManager {
   /**
    * Register executor with metadata
    */
-  registerExecutor<TInput extends Record<string, unknown>>(
-    params: CreateExecutorParams<TInput> & Omit<ManagedExecutorMeta, 'deps'>
-  ): Executor<TInput> {
-    const executor = this.engine.createExecutor(params);
-    const record: ManagedExecutorMeta & { executor: Executor<unknown> } = {
-      kind: params.kind,
+  registerExecutor<TInput extends Record<string, unknown>>(params: RegisterExecutorParams<TInput>): Executor<TInput> {
+    const { label, description, inputSchema, ...engineParams } = params;
+
+    const executor = this.engine.createExecutor(engineParams);
+    const record: ManagedExecutorMeta & { executor: Executor<unknown>; inputZodSchema?: ZodTypeAny } = {
+      kind: engineParams.kind,
       executor: executor as Executor<unknown>,
     };
-    if (params.label !== undefined) record.label = params.label;
-    if (params.description !== undefined) record.description = params.description;
-    if (params.deps !== undefined) record.deps = params.deps;
 
-    this.registry.set(params.kind, record);
+    if (label !== undefined) record.label = label;
+    if (description !== undefined) record.description = description;
+    if (engineParams.deps !== undefined) record.deps = engineParams.deps;
+    if (inputSchema) {
+      record.inputZodSchema = inputSchema as ZodTypeAny;
+      const schemaMeta = zodToExecutorInputSchema(inputSchema as ZodTypeAny);
+      if (schemaMeta) record.inputSchema = schemaMeta;
+    }
+
+    this.registry.set(engineParams.kind, record);
     return executor;
   }
 
@@ -48,10 +74,7 @@ export class FsDataManager {
    * This is useful when you want `deps` to depend on input values (e.g. repoUrl/branch).
    */
   registerDynamicExecutor<TInput extends Record<string, unknown>>(
-    params: Omit<CreateExecutorParams<TInput>, 'deps'> &
-      Omit<ManagedExecutorMeta, 'deps'> & {
-        deps?: (input: TInput) => Record<string, ExecutorConfig<unknown>>;
-      }
+    params: RegisterDynamicExecutorParams<TInput>
   ): Executor<TInput> {
     const wrapper = (async (executeParams: ExecuteParams<TInput>): Promise<string> => {
       const executorParams = params.deps
@@ -75,13 +98,18 @@ export class FsDataManager {
       skipCache: configParams.skipCache ?? false,
     });
 
-    const record: ManagedExecutorMeta & { executor: Executor<unknown> } = {
+    const record: ManagedExecutorMeta & { executor: Executor<unknown>; inputZodSchema?: ZodTypeAny } = {
       kind: params.kind,
       executor: wrapper as Executor<unknown>,
       hasDeps: Boolean(params.deps),
     };
     if (params.label !== undefined) record.label = params.label;
     if (params.description !== undefined) record.description = params.description;
+    if (params.inputSchema) {
+      record.inputZodSchema = params.inputSchema as ZodTypeAny;
+      const schemaMeta = zodToExecutorInputSchema(params.inputSchema as ZodTypeAny);
+      if (schemaMeta) record.inputSchema = schemaMeta;
+    }
 
     this.registry.set(params.kind, record);
     return wrapper;
@@ -98,7 +126,18 @@ export class FsDataManager {
     if (!registered) {
       throw new Error(`Executor not registered: ${kind}`);
     }
-    return (registered.executor as Executor<TInput>)(params);
+    let validatedInput = params.input as Record<string, unknown>;
+    if (registered.inputZodSchema) {
+      const parsed = registered.inputZodSchema.safeParse(validatedInput);
+      if (!parsed.success) {
+        throw new Error(formatZodError(parsed.error));
+      }
+      validatedInput = parsed.data as Record<string, unknown>;
+    }
+    return (registered.executor as Executor<TInput>)({
+      ...params,
+      input: validatedInput as TInput,
+    });
   }
 
   /**
@@ -125,7 +164,7 @@ export class FsDataManager {
   }
 
   listExecutors(): ManagedExecutorMeta[] {
-    return [...this.registry.values()].map(({ executor: _, ...meta }) => meta);
+    return [...this.registry.values()].map(({ executor: _, inputZodSchema: __, ...meta }) => meta);
   }
 
   /**

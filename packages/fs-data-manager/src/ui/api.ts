@@ -1,10 +1,16 @@
-import type { FsDataGraph } from '../types.js';
+import type { ExecutorInputSchema, FsDataGraph } from '../types.js';
 
 const API_BASE = (import.meta.env?.VITE_API_BASE as string | undefined) || '/api';
 
 export interface GraphResponse {
   graph: FsDataGraph;
-  executors: { kind: string; label?: string; description?: string; hasDeps: boolean }[];
+  executors: {
+    kind: string;
+    label?: string;
+    description?: string;
+    hasDeps: boolean;
+    inputSchema?: ExecutorInputSchema;
+  }[];
 }
 
 export async function fetchGraph(): Promise<GraphResponse> {

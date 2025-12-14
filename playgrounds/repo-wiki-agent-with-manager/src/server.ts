@@ -11,6 +11,9 @@ import {
   createRepoWikiContextFn,
   createRepoWikiGenerateExecutorFn,
   gitCloneExecutorParams,
+  gitCloneInputSchema,
+  repoWikiContextInputSchema,
+  repoWikiGenerateInputSchema,
   type RepoWikiGenerateInput,
   type RepoWikiContextInput,
 } from '@fs-based-agent/repo-wiki-agent';
@@ -37,6 +40,7 @@ async function main() {
     ...gitCloneExecutorParams,
     label: 'git-clone',
     description: 'Clone a git repository (depth=1) into repo/',
+    inputSchema: gitCloneInputSchema,
   });
 
   const createContext = manager.registerDynamicExecutor<RepoWikiContextInput>({
@@ -44,6 +48,7 @@ async function main() {
     label: 'repo-wiki-context',
     description: 'Create a workspace with repo/ and wiki-output/ (deps resolved from input)',
     deps: createRepoWikiContextDeps(cloneRepo),
+    inputSchema: repoWikiContextInputSchema,
     fn: createRepoWikiContextFn(WIKI_OUTPUT_DIR),
   });
 
@@ -62,6 +67,7 @@ async function main() {
         skipCache: false,
       }),
     }),
+    inputSchema: repoWikiGenerateInputSchema,
     fn: generateFn,
   });
 

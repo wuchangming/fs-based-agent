@@ -3,12 +3,17 @@ import type { Executor, ExecutorConfig, FnResult } from "@fs-based-agent/core";
 import * as fs from "node:fs/promises";
 import { createGitCloneExecutor } from "./executors/gitClone.executor.js";
 import type { GitCloneInput } from "./executors/gitClone.executor.js";
+import { z } from "zod";
 
-export interface RepoWikiContextInput {
-    repoUrl: string;
-    branch?: string | undefined;
-    [key: string]: unknown;
-}
+export const repoWikiContextInputSchema = z
+    .object({
+        repoUrl: z.string().min(1).describe("Git repository url (same as git-clone.url)"),
+        branch: z.string().min(1).optional().describe("Git branch/tag (optional)"),
+    })
+    .passthrough()
+    .describe("Create a workspace that contains repo/ and wiki output directories");
+
+export type RepoWikiContextInput = z.infer<typeof repoWikiContextInputSchema>;
 
 export function createRepoWikiContextDeps(cloneRepo: Executor<GitCloneInput>) {
     return (input: RepoWikiContextInput): Record<string, ExecutorConfig<unknown>> => {

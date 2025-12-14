@@ -40,6 +40,9 @@ importers:
       reactflow:
         specifier: ^11.11.0
         version: 11.11.4(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      zod:
+        specifier: ^4.1.13
+        version: 4.1.13
     devDependencies:
       '@types/express':
         specifier: ^4.17.21
@@ -83,6 +86,9 @@ importers:
       '@fs-based-agent/fs-data-manager':
         specifier: workspace:*
         version: link:../../packages/fs-data-manager
+      zod:
+        specifier: ^4.1.13
+        version: 4.1.13
     devDependencies:
       tsx:
         specifier: ^4.19.2

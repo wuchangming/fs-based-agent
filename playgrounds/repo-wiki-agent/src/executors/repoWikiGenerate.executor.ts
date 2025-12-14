@@ -9,16 +9,26 @@ import {
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createAgent, HumanMessage, SystemMessage } from 'langchain';
+import { z } from 'zod';
 import { getLLM } from '../llm.js';
 import { uniqueIdMiddleware } from '../fix/uniqueIdMiddleware.js';
 import { createRepoWikiSystemPrompt, WIKI_GENERATION_PROMPT } from '../repoWikiAgent.prompt.js';
 
-export interface RepoWikiGenerateInput {
-  repoUrl: string;
-  branch?: string | undefined;
-  recursionLimit?: number | undefined;
-  [key: string]: unknown;
-}
+export const repoWikiGenerateInputSchema = z
+  .object({
+    repoUrl: z.string().min(1).describe('Git repository url (same as repo-wiki-context.repoUrl)'),
+    branch: z.string().min(1).optional().describe('Git branch/tag (optional)'),
+    recursionLimit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .default(2000)
+      .describe('LangChain recursion limit (default: 2000)'),
+  })
+  .passthrough()
+  .describe('Generate wiki docs for a repository');
+
+export type RepoWikiGenerateInput = z.infer<typeof repoWikiGenerateInputSchema>;
 
 export interface RepoWikiGenerateExecutorOptions {
   wikiOutputDir: string;

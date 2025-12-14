@@ -393,6 +393,84 @@ pre {
   height: 16px;
 }
 
+.schema-form {
+  margin-top: 12px;
+  border: 1px solid #dfeaf5;
+  border-radius: 14px;
+  background: rgba(248, 251, 255, 0.8);
+  padding: 12px;
+}
+
+.schema-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.schema-fields {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.schema-field {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #e6edf5;
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.schema-field-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.schema-field-name {
+  font-weight: 800;
+  color: #0b3c4b;
+  font-family: 'IBM Plex Mono', 'Fira Code', monospace;
+  font-size: 13px;
+}
+
+.required {
+  margin-left: 4px;
+  color: #dc2626;
+  font-weight: 900;
+}
+
+.schema-field input,
+.schema-field select,
+.schema-field textarea {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #cbd8e6;
+  background: #ffffff;
+  padding: 8px 10px;
+  font-weight: 600;
+  font-family: 'IBM Plex Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  color: #0b1d2a;
+  margin-top: 8px;
+}
+
+.schema-field textarea {
+  resize: vertical;
+  min-height: 56px;
+}
+
+.schema-footer {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .kv {
   margin-top: 12px;
   border: 1px solid #dfeaf5;
@@ -527,6 +605,10 @@ button:hover {
     grid-template-columns: 1fr;
   }
   .kv-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .schema-footer {
     flex-direction: column;
     align-items: flex-start;
   }

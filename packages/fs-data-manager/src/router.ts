@@ -1,11 +1,13 @@
 import express from 'express';
 import type { FsDataManager } from './manager.js';
+import type { ExecutorInputSchema } from './types.js';
 
 export interface ExecutorSummary {
   kind: string;
   label?: string;
   description?: string;
   hasDeps: boolean;
+  inputSchema?: ExecutorInputSchema;
 }
 
 export function createFsDataManagerRouter(manager: FsDataManager): express.Router {
@@ -21,6 +23,7 @@ export function createFsDataManagerRouter(manager: FsDataManager): express.Route
         };
         if (ex.label !== undefined) summary.label = ex.label;
         if (ex.description !== undefined) summary.description = ex.description;
+        if (ex.inputSchema !== undefined) summary.inputSchema = ex.inputSchema;
         return summary;
       });
 

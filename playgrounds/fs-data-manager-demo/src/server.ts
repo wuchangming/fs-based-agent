@@ -3,6 +3,7 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 import fs from 'fs/promises';
 import { FsDataManager } from '@fs-based-agent/fs-data-manager';
+import { z } from 'zod';
 
 // Local FsData root (override with FS_DATA_ROOT)
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -11,9 +12,17 @@ const FS_DATA_ROOT =
 
 const manager = new FsDataManager(FS_DATA_ROOT);
 
+const sampleTextInputSchema = z
+  .object({
+    text: z.string().min(1).describe('Text content to write into text/text.txt'),
+  })
+  .passthrough()
+  .describe('Create a text artifact under data-space');
+
 const sample = manager.registerExecutor({
   kind: 'sample-text',
   label: 'sample-text',
+  inputSchema: sampleTextInputSchema,
   fn: async ({ text }: { text: string }, dir: string) => {
     const fs = await import('fs/promises');
     const value = typeof text === 'string' && text.length ? text : 'hello fs-data-manager';
