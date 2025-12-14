@@ -42,6 +42,6 @@ export function setupRepoWikiContext(
         });
 
         // Execute and return the context path
-        return executor({ input });
+        return executor({ input, skipCache: true });
     };
 }
