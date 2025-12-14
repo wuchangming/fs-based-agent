@@ -91,6 +91,140 @@ h1 {
   gap: 10px;
 }
 
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #e6edf5;
+  background: rgba(248, 251, 255, 0.7);
+}
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid #c9dff5;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #eff7ff;
+  box-shadow: 0 6px 16px rgba(12, 48, 71, 0.06);
+}
+
+.seg {
+  border: none;
+  background: transparent;
+  padding: 8px 12px;
+  border-radius: 0;
+  box-shadow: none;
+  font-weight: 800;
+  color: #0a3750;
+  cursor: pointer;
+}
+
+.seg:hover {
+  transform: none;
+}
+
+.seg.active {
+  background: linear-gradient(135deg, #0ea5e9, #14b8a6);
+  color: #f9feff;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.search input {
+  width: min(520px, 100%);
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1px solid #cbd8e6;
+  background: #ffffff;
+  font-weight: 700;
+  font-family: 'IBM Plex Mono', 'Fira Code', monospace;
+  font-size: 12px;
+}
+
+.list-view {
+  padding: 12px 12px 14px;
+}
+
+.node-table {
+  border: 1px solid #dfeaf5;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.node-table-head {
+  display: grid;
+  grid-template-columns: 1.2fr 1.8fr 0.8fr 2.2fr;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #f2f8ff;
+  border-bottom: 1px solid #e6edf5;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #0a3750;
+}
+
+.node-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1.2fr 1.8fr 0.8fr 2.2fr;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid #eef2f7;
+  text-align: left;
+  background: #fff;
+  cursor: pointer;
+  border-radius: 0;
+  box-shadow: none;
+  transform: none;
+}
+
+.node-row:hover {
+  transform: none;
+}
+
+.node-row:last-child {
+  border-bottom: none;
+}
+
+.node-row.dep {
+  background: #f8fbff;
+}
+
+.node-row.selected {
+  background: rgba(20, 184, 166, 0.12);
+  outline: 3px solid rgba(56, 189, 248, 0.35);
+  outline-offset: -3px;
+}
+
+.node-row .cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node-row .cell.mono {
+  font-family: 'IBM Plex Mono', 'Fira Code', monospace;
+  font-weight: 700;
+  color: #0b3c4b;
+}
+
+.node-row .cell.faint {
+  color: #395a6f;
+  font-weight: 600;
+}
+
 select {
   padding: 8px 12px;
   border-radius: 12px;
@@ -373,6 +507,20 @@ button:hover {
   }
   .graph-view {
     height: 420px;
+  }
+  .toolbar-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .search {
+    justify-content: stretch;
+  }
+  .search input {
+    width: 100%;
+  }
+  .node-table-head,
+  .node-row {
+    grid-template-columns: 1fr;
   }
   .kv-head,
   .kv-row {

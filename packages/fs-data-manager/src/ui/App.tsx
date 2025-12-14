@@ -2,8 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FsDataGraph } from '../types.js';
 import { GraphView } from './GraphView.js';
 import { NodeList } from './NodeList.js';
+import { NodeTableView } from './NodeTableView.js';
 import { RegisteredExecutors } from './RegisteredExecutors.js';
 import { useGraphData } from './hooks/useGraphData.js';
+
+type LeftViewMode = 'graph' | 'list';
 
 export function App() {
   const {
@@ -21,15 +24,27 @@ export function App() {
   } = useGraphData();
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<LeftViewMode>('list');
+  const [search, setSearch] = useState('');
 
   const filteredGraph = useMemo(() => {
-    return buildExecutorGraph(graph, selectedKind, Boolean(selectedExecutor?.hasDeps));
-  }, [graph, selectedExecutor?.hasDeps, selectedKind]);
+    return buildExecutorGraph(
+      graph,
+      selectedKind,
+      Boolean(selectedExecutor?.hasDeps),
+      search
+    );
+  }, [graph, search, selectedExecutor?.hasDeps, selectedKind]);
 
   const focusCount = useMemo(() => {
     if (!selectedKind) return 0;
     return filteredGraph.nodes.filter((n) => n.kind === selectedKind).length;
   }, [filteredGraph.nodes, selectedKind]);
+
+  const totalFocusCount = useMemo(() => {
+    if (!graph || !selectedKind) return 0;
+    return graph.nodes.filter((n) => n.kind === selectedKind).length;
+  }, [graph, selectedKind]);
 
   const depCount = useMemo(() => {
     if (!selectedKind) return 0;
@@ -38,6 +53,7 @@ export function App() {
 
   useEffect(() => {
     setSelectedNodeId(null);
+    setSearch('');
   }, [selectedKind]);
 
   useEffect(() => {
@@ -92,7 +108,7 @@ export function App() {
               </select>
               {selectedKind && (
                 <div className="meta">
-                  nodes: {focusCount}
+                  nodes: {search.trim() ? `${focusCount}/${totalFocusCount}` : focusCount}
                   {selectedExecutor?.hasDeps ? `, deps: ${depCount}` : ''}
                 </div>
               )}
@@ -107,12 +123,56 @@ export function App() {
           </div>
 
           {selectedKind ? (
-            <GraphView
-              graph={filteredGraph}
-              focusKind={selectedKind}
-              selectedNodeId={selectedNodeId}
-              onSelectNode={setSelectedNodeId}
-            />
+            <>
+              <div className="toolbar-row">
+                <div className="segmented">
+                  <button
+                    type="button"
+                    className={`seg${viewMode === 'graph' ? ' active' : ''}`}
+                    onClick={() => setViewMode('graph')}
+                  >
+                    Graph
+                  </button>
+                  <button
+                    type="button"
+                    className={`seg${viewMode === 'list' ? ' active' : ''}`}
+                    onClick={() => setViewMode('list')}
+                  >
+                    List
+                  </button>
+                </div>
+                <div className="search">
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search by input… (e.g. text=hello)"
+                  />
+                  {search.trim() ? (
+                    <button type="button" className="ghost" onClick={() => setSearch('')}>
+                      Clear
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              {viewMode === 'graph' ? (
+                <GraphView
+                  graph={filteredGraph}
+                  focusKind={selectedKind}
+                  selectedNodeId={selectedNodeId}
+                  onSelectNode={setSelectedNodeId}
+                />
+              ) : (
+                <div className="list-view">
+                  <NodeTableView
+                    graph={filteredGraph}
+                    focusKind={selectedKind}
+                    selectedNodeId={selectedNodeId}
+                    onSelectNode={setSelectedNodeId}
+                  />
+                </div>
+              )}
+            </>
           ) : (
             <div className="card muted">请选择一个 executor。</div>
           )}
@@ -130,11 +190,14 @@ export function App() {
 function buildExecutorGraph(
   graph: FsDataGraph | null,
   kind: string | null,
-  includeDeps: boolean
+  includeDeps: boolean,
+  search: string
 ): FsDataGraph {
   if (!graph || !kind) return { nodes: [], edges: [] };
 
-  const focusNodes = graph.nodes.filter((n) => n.kind === kind);
+  const focusNodesAll = graph.nodes.filter((n) => n.kind === kind);
+  const query = search.trim();
+  const focusNodes = query ? focusNodesAll.filter((n) => matchesInput(n.manifest.input, query)) : focusNodesAll;
   if (!includeDeps) {
     return { nodes: focusNodes, edges: [] };
   }
@@ -162,4 +225,57 @@ function buildExecutorGraph(
   );
 
   return { nodes, edges };
+}
+
+function matchesInput(input: unknown, query: string): boolean {
+  const parts = query
+    .trim()
+    .split(/\s+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (!parts.length) return true;
+
+  return parts.every((part) => matchesInputToken(input, part));
+}
+
+function matchesInputToken(input: unknown, token: string): boolean {
+  const normalized = token.trim();
+  if (!normalized) return true;
+
+  const lower = normalized.toLowerCase();
+  const delimiterIndex = lower.indexOf('=');
+  const colonIndex = lower.indexOf(':');
+  const idx =
+    delimiterIndex === -1
+      ? colonIndex
+      : colonIndex === -1
+        ? delimiterIndex
+        : Math.min(delimiterIndex, colonIndex);
+
+  if (idx > 0) {
+    const key = normalized.slice(0, idx).trim();
+    const expected = normalized.slice(idx + 1).trim().toLowerCase();
+    if (!key) return true;
+    if (!input || typeof input !== 'object') return false;
+
+    const record = input as Record<string, unknown>;
+    if (!(key in record)) return false;
+    if (!expected) return true;
+
+    const value = record[key];
+    if (value === null || value === undefined) return false;
+    if (typeof value === 'string') return value.toLowerCase().includes(expected);
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value).toLowerCase() === expected;
+    try {
+      return JSON.stringify(value).toLowerCase().includes(expected);
+    } catch {
+      return String(value).toLowerCase().includes(expected);
+    }
+  }
+
+  try {
+    return JSON.stringify(input).toLowerCase().includes(lower);
+  } catch {
+    return String(input).toLowerCase().includes(lower);
+  }
 }
