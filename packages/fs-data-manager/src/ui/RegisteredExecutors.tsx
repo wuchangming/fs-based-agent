@@ -128,19 +128,36 @@ function ExecutorRunModal({
   onClose: () => void;
   onSubmit: (input: Record<string, unknown>, skipCache: boolean) => Promise<void>;
 }) {
+  const schema = executor.inputSchema;
+  const hasSchema = Boolean(schema?.fields?.length);
+
   const storageKey = `fs-data-manager:executor-input:${executor.kind}`;
+  const rememberKey = `fs-data-manager:executor-input:remember:${executor.kind}`;
+  const initialRemember = safeLocalStorageGet(rememberKey) === 'true';
+
+  const [rememberInput, setRememberInput] = useState(initialRemember);
+  const [hasSaved, setHasSaved] = useState(() => (initialRemember ? Boolean(safeLocalStorageGet(storageKey)) : false));
+
+  const initialFormState = initialRemember ? loadFormState(storageKey, schema) : createEmptyFormState(schema);
   const [formState, setFormState] = useState<{
     schemaValues: Record<string, string>;
     rows: InputRow[];
-  }>(() => loadFormState(storageKey, executor.inputSchema));
+  }>(initialFormState);
 
   const [skipCache, setSkipCache] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(
+    () => !hasSchema || formState.rows.some((row) => row.key.trim().length > 0)
+  );
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
 
-  const schema = executor.inputSchema;
-  const hasSchema = Boolean(schema?.fields?.length);
+  useEffect(() => {
+    safeLocalStorageSet(rememberKey, rememberInput ? 'true' : 'false');
+    if (!rememberInput) {
+      safeLocalStorageRemove(storageKey);
+      setHasSaved(false);
+    }
+  }, [rememberInput, rememberKey, storageKey]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -184,6 +201,18 @@ function ExecutorRunModal({
     }));
   }
 
+  function resetForm() {
+    setError(null);
+    const empty = createEmptyFormState(schema);
+    setFormState(empty);
+    setShowAdvanced(!hasSchema);
+  }
+
+  function clearSaved() {
+    safeLocalStorageRemove(storageKey);
+    setHasSaved(false);
+  }
+
   async function handleRun() {
     setError(null);
     let inputRows = formState.rows;
@@ -199,14 +228,20 @@ function ExecutorRunModal({
       const extraInput = buildInputFromRows(inputRows);
       const merged = mergeInputs(schemaInput, extraInput);
 
-      localStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          version: 2,
-          schemaValues: formState.schemaValues,
-          rows: inputRows.map(({ key, value, type }) => ({ key, value, type })),
-        })
-      );
+      if (rememberInput) {
+        safeLocalStorageSet(
+          storageKey,
+          JSON.stringify({
+            version: 2,
+            schemaValues: formState.schemaValues,
+            rows: inputRows.map(({ key, value, type }) => ({ key, value, type })),
+          })
+        );
+        setHasSaved(true);
+      } else {
+        safeLocalStorageRemove(storageKey);
+        setHasSaved(false);
+      }
 
       setRunning(true);
       await onSubmit(merged, skipCache);
@@ -254,6 +289,28 @@ function ExecutorRunModal({
               />
               <span>skip cache（强制重新执行）</span>
             </label>
+          </div>
+
+          <div className="form-row modal-input-options">
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={rememberInput}
+                onChange={(e) => setRememberInput(e.target.checked)}
+                disabled={running}
+              />
+              <span>记住输入（下次打开自动填充）</span>
+            </label>
+            <div className="modal-input-buttons">
+              {hasSaved ? (
+                <button type="button" className="ghost" onClick={clearSaved} disabled={running}>
+                  清除保存
+                </button>
+              ) : null}
+              <button type="button" className="ghost" onClick={resetForm} disabled={running}>
+                重置
+              </button>
+            </div>
           </div>
 
           {hasSchema ? (
@@ -464,6 +521,12 @@ function ExecutorRunModal({
   );
 }
 
+function createEmptyFormState(
+  schema: ExecutorInputSchema | undefined
+): { schemaValues: Record<string, string>; rows: InputRow[] } {
+  return { schemaValues: normalizeSchemaValues(schema, {}), rows: [createRow()] };
+}
+
 function loadFormState(
   storageKey: string,
   schema: ExecutorInputSchema | undefined
@@ -643,5 +706,29 @@ function formatDefaultValue(value: unknown): string {
     return JSON.stringify(value);
   } catch {
     return String(value);
+  }
+}
+
+function safeLocalStorageGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeLocalStorageSet(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // ignore
+  }
+}
+
+function safeLocalStorageRemove(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // ignore
   }
 }

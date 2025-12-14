@@ -407,6 +407,20 @@ pre {
   margin-top: 8px;
 }
 
+.modal-input-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.modal-input-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .checkbox {
   display: inline-flex;
   gap: 10px;
