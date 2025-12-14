@@ -105,12 +105,7 @@ function computePositions(graph: FsDataGraph): Record<string, Coord> {
       cols.set(id, candidate);
       used.add(candidate);
     }
-
-    // Compress columns to keep graph compact
-    const ordered = [...cols.entries()].sort((a, b) => (a[1] ?? 0) - (b[1] ?? 0));
-    const remapped = new Map<string, number>();
-    ordered.forEach(([id], idx) => remapped.set(id, idx));
-    columnsByLayer.set(layer, remapped);
+    columnsByLayer.set(layer, cols);
   }
 
   // Re-center roots above their children (optional, improves fan-out)
@@ -163,7 +158,23 @@ function computePositions(graph: FsDataGraph): Record<string, Coord> {
 
 export function GraphView({ graph, focusKind, selectedNodeId, onSelectNode }: GraphViewProps) {
   const [instance, setInstance] = useState<ReactFlowInstance | null>(null);
-  const positions = useMemo(() => computePositions(graph), [graph]);
+  // UI convention:
+  // - Focus executor nodes are the "main" nodes.
+  // - Dependency nodes are treated as "children" and should appear BELOW the main nodes.
+  // Our FsData graph edges are stored as: dependency -> dependent.
+  // For display/layout we reverse edges to render: main -> dependency.
+  const renderGraph = useMemo(() => {
+    return {
+      nodes: graph.nodes,
+      edges: graph.edges.map((edge) => ({
+        ...edge,
+        source: edge.target,
+        target: edge.source,
+      })),
+    };
+  }, [graph.edges, graph.nodes]);
+
+  const positions = useMemo(() => computePositions(renderGraph), [renderGraph]);
   const graphKey = useMemo(() => {
     const nodeKey = graph.nodes
       .map((n) => n.id)
@@ -214,7 +225,7 @@ export function GraphView({ graph, focusKind, selectedNodeId, onSelectNode }: Gr
   }, [focusKind, graph.nodes, positions, selectedNodeId]);
 
   const edges = useMemo(() => {
-    return graph.edges.map((edge) => {
+    return renderGraph.edges.map((edge) => {
       const isActive = selectedNodeId
         ? edge.source === selectedNodeId || edge.target === selectedNodeId
         : false;
@@ -226,7 +237,8 @@ export function GraphView({ graph, focusKind, selectedNodeId, onSelectNode }: Gr
         source: edge.source,
         target: edge.target,
         label: edge.label,
-        type: 'smoothstep' as const,
+        type: 'default' as const,
+        pathOptions: { curvature: 0.35 },
         labelBgPadding: [6, 3] as [number, number],
         labelBgBorderRadius: 6,
         style: { stroke, strokeWidth: isActive ? 3 : 2, strokeDasharray: dash },
@@ -235,7 +247,7 @@ export function GraphView({ graph, focusKind, selectedNodeId, onSelectNode }: Gr
         markerEnd: { type: MarkerType.ArrowClosed, color: stroke },
       };
     });
-  }, [graph.edges, selectedNodeId]);
+  }, [renderGraph.edges, selectedNodeId]);
 
   useEffect(() => {
     if (!instance) return;
