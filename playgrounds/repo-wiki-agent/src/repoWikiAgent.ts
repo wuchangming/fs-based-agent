@@ -9,11 +9,11 @@ import {
 import { createAgent, HumanMessage, SystemMessage } from "langchain";
 import { getLLM } from "./llm.js";
 import { createGitCloneExecutor } from "./executors/gitClone.executor.js";
-import { setupRepoWikiContext } from "./executors/repoWikiAgentCtx.executor.js";
+import { setupRepoWikiContext } from "./repoWikiAgent.context.js";
 import {
     REPO_WIKI_SYSTEM_PROMPT,
     WIKI_GENERATION_PROMPT,
-} from "./repoWikiAgent.propmt.js";
+} from "./repoWikiAgent.prompt.js";
 import { FS_DATA_FOLDER } from "./constants.js";
 import { uniqueIdMiddleware } from "./fix/uniqueIdMiddleware.js";
 

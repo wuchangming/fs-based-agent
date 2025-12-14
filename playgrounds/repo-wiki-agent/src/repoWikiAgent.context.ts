@@ -1,6 +1,6 @@
 import { FsContextEngine, type Executor } from "@fs-based-agent/core";
 import * as fs from "node:fs/promises";
-import type { GitCloneInput } from "./gitClone.executor.js";
+import type { GitCloneInput } from "./executors/gitClone.executor.js";
 
 export interface RepoWikiContextInput {
     repoUrl: string;
