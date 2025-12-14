@@ -32,7 +32,6 @@ export function setupRepoWikiContext(
             deps: {
                 repo: cloneRepo.config({
                     input: { url: repoUrl, branch },
-                    skipCache: false,
                 }),
             },
             fn: async (_, dataDir) => {

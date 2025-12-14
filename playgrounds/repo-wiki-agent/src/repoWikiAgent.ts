@@ -19,8 +19,6 @@ import { FS_DATA_FOLDER } from "./constants.js";
 export interface RepoWikiAgentOptions {
     repoUrl: string;
     branch?: string;
-    /** Skip cache and re-clone the repository */
-    skipCache?: boolean;
 }
 
 export interface RepoWikiAgentResult {
