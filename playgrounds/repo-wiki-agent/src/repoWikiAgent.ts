@@ -53,10 +53,6 @@ export async function runRepoWikiAgent(
     const repoPath = `${contextPath}/repo`;
     const wikiOutputPath = `${contextPath}/${WIKI_OUTPUT_DIR}`;
 
-    console.log(`Context path: ${contextPath}`);
-    console.log(`Repository at: ${repoPath}`);
-    console.log(`Wiki output at: ${wikiOutputPath}`);
-
     // Create tools scoped to the context path
     // The prompt tells the agent: repo is in ./repo, write wiki to ./WIKI_OUTPUT_DIR
     const tools = [
@@ -77,7 +73,7 @@ export async function runRepoWikiAgent(
     // Run the agent
     console.log("Starting wiki generation...");
 
-    const result = await agent.invoke({
+    await agent.invoke({
         messages: [
             new SystemMessage(createRepoWikiSystemPrompt(WIKI_OUTPUT_DIR)),
             new HumanMessage(WIKI_GENERATION_PROMPT),
@@ -88,13 +84,6 @@ export async function runRepoWikiAgent(
 
     console.log("Wiki generation completed!");
     console.log(`Generated files available at: ${wikiOutputPath}`);
-
-    // Log the last message from the agent
-    const lastMessage = result.messages[result.messages.length - 1];
-    if (lastMessage?.content) {
-        console.log("\nAgent summary:");
-        console.log(lastMessage.content);
-    }
 
     return {
         wikiOutputPath,
