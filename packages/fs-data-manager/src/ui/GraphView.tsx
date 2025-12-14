@@ -13,8 +13,9 @@ import 'reactflow/dist/style.css';
 interface GraphViewProps {
   graph: FsDataGraph;
   focusKind: string;
-  selectedNodeId: string | null;
-  onSelectNode: (nodeId: string | null) => void;
+  focusNodeId: string | null;
+  inspectedNodeId: string | null;
+  onInspectNode: (nodeId: string | null) => void;
 }
 
 interface Coord {
@@ -156,8 +157,15 @@ function computePositions(graph: FsDataGraph): Record<string, Coord> {
   return positions;
 }
 
-export function GraphView({ graph, focusKind, selectedNodeId, onSelectNode }: GraphViewProps) {
+export function GraphView({
+  graph,
+  focusKind,
+  focusNodeId,
+  inspectedNodeId,
+  onInspectNode,
+}: GraphViewProps) {
   const [instance, setInstance] = useState<ReactFlowInstance | null>(null);
+
   // UI convention:
   // - Focus executor nodes are the "main" nodes.
   // - Dependency nodes are treated as "children" and should appear BELOW the main nodes.
@@ -186,18 +194,21 @@ export function GraphView({ graph, focusKind, selectedNodeId, onSelectNode }: Gr
       .slice()
       .sort()
       .join('|');
-    return `${focusKind}::${nodeKey}::${edgeKey}`;
-  }, [focusKind, graph.edges, graph.nodes]);
+    return `${focusKind}::${focusNodeId ?? 'none'}::${nodeKey}::${edgeKey}`;
+  }, [focusKind, focusNodeId, graph.edges, graph.nodes]);
 
   const nodes = useMemo(() => {
     return graph.nodes.map((node) => {
-      const isFocus = node.kind === focusKind;
-      const isSelected = selectedNodeId === node.id;
-      const bg = isSelected ? '#0b9e89' : isFocus ? '#0f766e' : '#0b4f6c';
-      const border = isSelected ? '#38bdf8' : isFocus ? '#0ea5e9' : '#3b82f6';
-      const shadow = isSelected
+      const isFocusNode = node.id === focusNodeId;
+      const isInspected = node.id === inspectedNodeId;
+      const baseBg = isFocusNode ? '#0f766e' : '#0b4f6c';
+      const bg = isInspected ? (isFocusNode ? '#0b9e89' : '#0c6b93') : baseBg;
+      const border = isInspected ? '#38bdf8' : isFocusNode ? '#14b8a6' : '#0ea5e9';
+      const shadow = isInspected
         ? '0 14px 40px rgba(56, 189, 248, 0.35)'
-        : '0 10px 30px rgba(15, 118, 110, 0.22)';
+        : isFocusNode
+          ? '0 10px 30px rgba(15, 118, 110, 0.22)'
+          : '0 10px 26px rgba(11, 79, 108, 0.16)';
 
       return {
         id: node.id,
@@ -210,25 +221,25 @@ export function GraphView({ graph, focusKind, selectedNodeId, onSelectNode }: Gr
           color: '#e7fff9',
           borderRadius: 14,
           padding: '12px 12px',
-          border: `${isSelected ? 4 : 3}px solid ${border}`,
+          border: `${isInspected ? 4 : 3}px solid ${border}`,
           boxShadow: shadow,
           cursor: 'pointer',
           whiteSpace: 'pre-line',
           fontSize: 12,
           fontWeight: 700,
-          outline: isSelected ? '6px solid rgba(56, 189, 248, 0.16)' : 'none',
+          outline: isInspected ? '6px solid rgba(56, 189, 248, 0.16)' : 'none',
           outlineOffset: 2,
           transition: 'box-shadow 150ms ease, border-color 150ms ease, outline-color 150ms ease',
-          zIndex: isSelected ? 10 : 0,
+          zIndex: isInspected ? 10 : 0,
         },
       };
     });
-  }, [focusKind, graph.nodes, positions, selectedNodeId]);
+  }, [focusNodeId, graph.nodes, inspectedNodeId, positions]);
 
   const edges = useMemo(() => {
     return renderGraph.edges.map((edge) => {
-      const isActive = selectedNodeId
-        ? edge.source === selectedNodeId || edge.target === selectedNodeId
+      const isActive = inspectedNodeId
+        ? edge.source === inspectedNodeId || edge.target === inspectedNodeId
         : false;
       const stroke = isActive ? '#38bdf8' : '#0ea5e9';
       const dash = isActive ? '0' : '6 4';
@@ -248,7 +259,7 @@ export function GraphView({ graph, focusKind, selectedNodeId, onSelectNode }: Gr
         markerEnd: { type: MarkerType.ArrowClosed, color: stroke },
       };
     });
-  }, [renderGraph.edges, selectedNodeId]);
+  }, [inspectedNodeId, renderGraph.edges]);
 
   useEffect(() => {
     if (!instance) return;
@@ -256,8 +267,12 @@ export function GraphView({ graph, focusKind, selectedNodeId, onSelectNode }: Gr
     instance.fitView({ padding: 0.25, duration: 250 });
   }, [instance, graphKey, nodes.length]);
 
+  if (!focusNodeId) {
+    return <div className="card muted">在上方列表中选择一个节点以查看依赖图。</div>;
+  }
+
   if (!graph.nodes.length) {
-    return <div className="card muted">No nodes for this executor yet. Run it once to generate FsData.</div>;
+    return <div className="card muted">选中的节点不在依赖图中。</div>;
   }
 
   return (
@@ -266,8 +281,8 @@ export function GraphView({ graph, focusKind, selectedNodeId, onSelectNode }: Gr
         nodes={nodes}
         edges={edges}
         onInit={setInstance}
-        onNodeClick={(_, node) => onSelectNode(node.id)}
-        onPaneClick={() => onSelectNode(null)}
+        onNodeClick={(_, node) => onInspectNode(node.id)}
+        onPaneClick={() => onInspectNode(focusNodeId)}
         nodesDraggable={false}
         nodesConnectable={false}
         proOptions={{ hideAttribution: true }}

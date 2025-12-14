@@ -67,7 +67,7 @@ h1 {
 }
 
 .graph-view {
-  height: 620px;
+  height: 520px;
 }
 
 .selector-row {
@@ -149,6 +149,26 @@ h1 {
   font-size: 12px;
 }
 
+.explorer {
+  padding: 12px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.explorer-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.explorer-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .list-view {
   padding: 12px 12px 14px;
 }
@@ -158,11 +178,13 @@ h1 {
   border-radius: 14px;
   overflow: hidden;
   background: #fff;
+  max-height: 280px;
+  overflow: auto;
 }
 
 .node-table-head {
   display: grid;
-  grid-template-columns: 1.2fr 1.8fr 0.8fr 2.2fr;
+  grid-template-columns: 1.8fr 0.8fr 0.6fr 2.2fr;
   gap: 10px;
   padding: 10px 12px;
   background: #f2f8ff;
@@ -172,12 +194,15 @@ h1 {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #0a3750;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .node-row {
   width: 100%;
   display: grid;
-  grid-template-columns: 1.2fr 1.8fr 0.8fr 2.2fr;
+  grid-template-columns: 1.8fr 0.8fr 0.6fr 2.2fr;
   gap: 10px;
   align-items: center;
   padding: 10px 12px;
@@ -196,10 +221,6 @@ h1 {
 
 .node-row:last-child {
   border-bottom: none;
-}
-
-.node-row.dep {
-  background: #f8fbff;
 }
 
 .node-row.selected {
@@ -252,6 +273,12 @@ select {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .title {

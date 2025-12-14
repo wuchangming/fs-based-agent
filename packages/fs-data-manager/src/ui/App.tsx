@@ -6,8 +6,6 @@ import { NodeTableView } from './NodeTableView.js';
 import { RegisteredExecutors } from './RegisteredExecutors.js';
 import { useGraphData } from './hooks/useGraphData.js';
 
-type LeftViewMode = 'graph' | 'list';
-
 export function App() {
   const {
     graph,
@@ -23,44 +21,72 @@ export function App() {
     executeExecutor,
   } = useGraphData();
 
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<LeftViewMode>('list');
+  const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
+  const [inspectedNodeId, setInspectedNodeId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
-  const filteredGraph = useMemo(() => {
-    return buildExecutorGraph(
-      graph,
-      selectedKind,
-      Boolean(selectedExecutor?.hasDeps),
-      search
-    );
-  }, [graph, search, selectedExecutor?.hasDeps, selectedKind]);
-
-  const focusCount = useMemo(() => {
-    if (!selectedKind) return 0;
-    return filteredGraph.nodes.filter((n) => n.kind === selectedKind).length;
-  }, [filteredGraph.nodes, selectedKind]);
-
-  const totalFocusCount = useMemo(() => {
-    if (!graph || !selectedKind) return 0;
-    return graph.nodes.filter((n) => n.kind === selectedKind).length;
+  const listNodesAll = useMemo(() => {
+    if (!graph || !selectedKind) return [];
+    return graph.nodes.filter((n) => n.kind === selectedKind);
   }, [graph, selectedKind]);
 
-  const depCount = useMemo(() => {
-    if (!selectedKind) return 0;
-    return filteredGraph.nodes.filter((n) => n.kind !== selectedKind).length;
-  }, [filteredGraph.nodes, selectedKind]);
+  const listNodes = useMemo(() => {
+    const query = search.trim();
+    if (!query) return listNodesAll;
+    return listNodesAll.filter((n) => matchesInput(n.manifest.input, query));
+  }, [listNodesAll, search]);
+
+  const listGraph = useMemo<FsDataGraph>(() => {
+    return { nodes: listNodes, edges: [] };
+  }, [listNodes]);
+
+  const dependencyGraph = useMemo<FsDataGraph>(() => {
+    if (!graph || !focusNodeId) return { nodes: [], edges: [] };
+    return buildDependencySubgraph(graph, focusNodeId);
+  }, [focusNodeId, graph]);
+
+  const focusCount = useMemo(() => {
+    return listNodes.length;
+  }, [listNodes.length]);
+
+  const totalFocusCount = useMemo(() => {
+    return listNodesAll.length;
+  }, [listNodesAll.length]);
+
+  const dependencyCount = useMemo(() => {
+    if (!focusNodeId) return 0;
+    return Math.max(0, dependencyGraph.nodes.length - 1);
+  }, [dependencyGraph.nodes.length, focusNodeId]);
 
   useEffect(() => {
-    setSelectedNodeId(null);
+    setFocusNodeId(null);
+    setInspectedNodeId(null);
     setSearch('');
   }, [selectedKind]);
 
   useEffect(() => {
-    if (selectedNodeId && !filteredGraph.nodes.some((n) => n.id === selectedNodeId)) {
-      setSelectedNodeId(null);
+    if (!selectedKind) return;
+
+    const listIds = new Set(listNodes.map((n) => n.id));
+
+    // Clear focus selection if it is no longer visible in the list (e.g. filtered out by search)
+    if (focusNodeId && !listIds.has(focusNodeId)) {
+      setFocusNodeId(null);
+      setInspectedNodeId(null);
+      return;
     }
-  }, [filteredGraph.nodes, selectedNodeId]);
+
+    // Auto-select first node for better UX
+    if (!focusNodeId && listNodes.length) {
+      setFocusNodeId(listNodes[0]!.id);
+      setInspectedNodeId(listNodes[0]!.id);
+    }
+  }, [focusNodeId, listNodes, selectedKind]);
+
+  useEffect(() => {
+    if (!focusNodeId) return;
+    setInspectedNodeId(focusNodeId);
+  }, [focusNodeId]);
 
   const headline = useMemo(() => {
     if (loading) return 'Loading fs-data graph...';
@@ -109,43 +135,28 @@ export function App() {
               {selectedKind && (
                 <div className="meta">
                   nodes: {search.trim() ? `${focusCount}/${totalFocusCount}` : focusCount}
-                  {selectedExecutor?.hasDeps ? `, deps: ${depCount}` : ''}
                 </div>
               )}
             </div>
             <div className="selector-right">
-              {selectedExecutor?.hasDeps ? (
-                <span className="badge">deps enabled</span>
-              ) : (
-                selectedKind && <span className="badge muted">no deps</span>
-              )}
+              {focusNodeId ? (
+                dependencyCount ? (
+                  <span className="badge">deps: {dependencyCount}</span>
+                ) : (
+                  <span className="badge muted">no deps</span>
+                )
+              ) : null}
             </div>
           </div>
 
           {selectedKind ? (
             <>
               <div className="toolbar-row">
-                <div className="segmented">
-                  <button
-                    type="button"
-                    className={`seg${viewMode === 'graph' ? ' active' : ''}`}
-                    onClick={() => setViewMode('graph')}
-                  >
-                    Graph
-                  </button>
-                  <button
-                    type="button"
-                    className={`seg${viewMode === 'list' ? ' active' : ''}`}
-                    onClick={() => setViewMode('list')}
-                  >
-                    List
-                  </button>
-                </div>
                 <div className="search">
                   <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search by input… (e.g. text=hello)"
+                    placeholder="Search by input… (e.g. repoUrl=github.com)"
                   />
                   {search.trim() ? (
                     <button type="button" className="ghost" onClick={() => setSearch('')}>
@@ -155,23 +166,45 @@ export function App() {
                 </div>
               </div>
 
-              {viewMode === 'graph' ? (
-                <GraphView
-                  graph={filteredGraph}
-                  focusKind={selectedKind}
-                  selectedNodeId={selectedNodeId}
-                  onSelectNode={setSelectedNodeId}
-                />
-              ) : (
-                <div className="list-view">
+              <div className="explorer">
+                <div className="explorer-section">
+                  <div className="explorer-head">
+                    <div className="eyebrow">Nodes</div>
+                    <div className="meta muted">
+                      {search.trim() ? `${focusCount}/${totalFocusCount}` : focusCount} items
+                    </div>
+                  </div>
                   <NodeTableView
-                    graph={filteredGraph}
-                    focusKind={selectedKind}
-                    selectedNodeId={selectedNodeId}
-                    onSelectNode={setSelectedNodeId}
+                    graph={listGraph}
+                    selectedNodeId={focusNodeId}
+                    onSelectNode={(nodeId) => {
+                      setFocusNodeId(nodeId);
+                      setInspectedNodeId(nodeId);
+                    }}
                   />
                 </div>
-              )}
+
+                <div className="explorer-section">
+                  <div className="explorer-head">
+                    <div className="eyebrow">Dependencies</div>
+                    <div className="meta muted">
+                      {focusNodeId
+                        ? dependencyCount
+                          ? `showing ${dependencyCount} deps`
+                          : 'no deps'
+                        : 'select a node above'}
+                    </div>
+                  </div>
+
+                  <GraphView
+                    graph={dependencyGraph}
+                    focusKind={selectedKind}
+                    focusNodeId={focusNodeId}
+                    inspectedNodeId={inspectedNodeId}
+                    onInspectNode={setInspectedNodeId}
+                  />
+                </div>
+              </div>
             </>
           ) : (
             <div className="card muted">请选择一个 executor。</div>
@@ -179,7 +212,13 @@ export function App() {
         </section>
 
         <section className="panel list-panel">
-          <NodeList graph={filteredGraph} selectedNodeId={selectedNodeId} onReExecute={reExecuteNode} />
+          <NodeList
+            graph={graph ?? { nodes: [], edges: [] }}
+            focusNodeId={focusNodeId}
+            selectedNodeId={inspectedNodeId}
+            onReExecute={reExecuteNode}
+            onInspectFocus={() => setInspectedNodeId(focusNodeId)}
+          />
           <RegisteredExecutors executors={executors} onExecute={executeExecutor} />
         </section>
       </main>
@@ -187,34 +226,26 @@ export function App() {
   );
 }
 
-function buildExecutorGraph(
-  graph: FsDataGraph | null,
-  kind: string | null,
-  includeDeps: boolean,
-  search: string
-): FsDataGraph {
-  if (!graph || !kind) return { nodes: [], edges: [] };
-
-  const focusNodesAll = graph.nodes.filter((n) => n.kind === kind);
-  const query = search.trim();
-  const focusNodes = query ? focusNodesAll.filter((n) => matchesInput(n.manifest.input, query)) : focusNodesAll;
-  if (!includeDeps) {
-    return { nodes: focusNodes, edges: [] };
-  }
-
-  const includeIds = new Set<string>(focusNodes.map((n) => n.id));
+function buildDependencySubgraph(graph: FsDataGraph, focusNodeId: string): FsDataGraph {
+  const includeIds = new Set<string>([focusNodeId]);
   const includeEdgeMap = new Map<string, (typeof graph.edges)[number]>();
 
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const edge of graph.edges) {
-      if (includeIds.has(edge.target)) {
-        includeEdgeMap.set(edge.id, edge);
-        if (!includeIds.has(edge.source)) {
-          includeIds.add(edge.source);
-          changed = true;
-        }
+  const incoming = new Map<string, (typeof graph.edges)[number][]>();
+  for (const edge of graph.edges) {
+    const list = incoming.get(edge.target) ?? [];
+    list.push(edge);
+    incoming.set(edge.target, list);
+  }
+
+  const stack = [focusNodeId];
+  while (stack.length) {
+    const current = stack.pop();
+    if (!current) continue;
+    for (const edge of incoming.get(current) ?? []) {
+      includeEdgeMap.set(edge.id, edge);
+      if (!includeIds.has(edge.source)) {
+        includeIds.add(edge.source);
+        stack.push(edge.source);
       }
     }
   }
