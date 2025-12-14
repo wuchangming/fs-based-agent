@@ -38,6 +38,15 @@ describe('FsContextEngine', () => {
       expect(typeof testExecutor.config).toBe('function');
     });
 
+    it('should reject invalid kind names', () => {
+      expect(() =>
+        engine.createExecutor({
+          kind: 'bad/kind',
+          fn: async () => ({ entry: '.' }),
+        })
+      ).toThrow(/kind/i);
+    });
+
     it('should execute fn and return entry path', async () => {
       const testExecutor = engine.createExecutor({
         kind: 'test-executor',
@@ -233,6 +242,29 @@ describe('FsContextEngine', () => {
       expect(content).toBe('Hello from source - processed');
     });
 
+    it('should reject path traversal in dep keys', async () => {
+      const source = engine.createExecutor({
+        kind: 'dep-source',
+        fn: async (_input: Record<string, unknown>, dataDir) => {
+          await fs.writeFile(path.join(dataDir, 'data.txt'), 'ok');
+          return { entry: 'data.txt' };
+        },
+      });
+
+      const badDep = engine.createExecutor({
+        kind: 'bad-dep',
+        deps: {
+          '../escape': source.config({ input: {} }),
+        },
+        fn: async (_input: Record<string, unknown>, dataDir) => {
+          await fs.writeFile(path.join(dataDir, 'out.txt'), 'should-not-run');
+          return { entry: 'out.txt' };
+        },
+      });
+
+      await expect(badDep({ input: {} })).rejects.toThrow(/depPath/i);
+    });
+
     it('should have independent cache for deps', async () => {
       let sourceCallCount = 0;
 
@@ -425,6 +457,14 @@ describe('FsContextEngine', () => {
       } catch {
         // Directory not existing is also normal
       }
+    });
+
+    it('should reject path traversal in entry', async () => {
+      const badEntry = engine.createExecutor({
+        kind: 'bad-entry',
+        fn: async () => ({ entry: '../escape' }),
+      });
+      await expect(badEntry({ input: {} })).rejects.toThrow(/entry/i);
     });
   });
 });

@@ -22,6 +22,28 @@ export const MANIFEST_VERSION = '1.0.0';
 /** fs-data directory version */
 export const FS_DATA_VERSION = '1.0.0';
 
+function assertSafeRelativePath(value: string, name: string): string {
+  if (typeof value !== 'string') {
+    throw new Error(`${name} must be a string`);
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error(`${name} must be a non-empty relative path`);
+  }
+  if (value.includes('\0')) {
+    throw new Error(`${name} must not contain null bytes`);
+  }
+  if (path.isAbsolute(value)) {
+    throw new Error(`${name} must be a relative path`);
+  }
+  // Disallow path traversal (.. segments) for safety.
+  const segments = value.split(/[\\/]+/);
+  if (segments.some((seg) => seg === '..')) {
+    throw new Error(`${name} must not contain ".." segments`);
+  }
+  return value;
+}
+
 /**
  * Recursively stable-sort object keys
  */
@@ -115,7 +137,8 @@ export async function writeManifest(dataPath: string, manifest: FsDataManifest):
 export async function createDataLink(dataPath: string, entry: string): Promise<void> {
   const linkPath = path.join(dataPath, DATA_LINK_FILENAME);
   // Use relative path, pointing to entry under data-space
-  const target = path.join(DATA_SPACE_DIRNAME, entry);
+  const safeEntry = assertSafeRelativePath(entry, 'entry');
+  const target = path.join(DATA_SPACE_DIRNAME, safeEntry);
   await fs.symlink(target, linkPath);
 }
 
@@ -126,7 +149,16 @@ export async function readDataLink(dataPath: string): Promise<string> {
   const linkPath = path.join(dataPath, DATA_LINK_FILENAME);
   const target = await fs.readlink(linkPath);
   // Resolve to absolute path
-  return path.resolve(dataPath, target);
+  const resolved = path.resolve(dataPath, target);
+
+  // Ensure dataLink points within data-space.
+  const dataSpacePath = path.resolve(dataPath, DATA_SPACE_DIRNAME);
+  const relative = path.relative(dataSpacePath, resolved);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`dataLink points outside of data-space: ${resolved}`);
+  }
+
+  return resolved;
 }
 
 /**

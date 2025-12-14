@@ -5,9 +5,10 @@
   "type": "module",
   "description": "",
   "scripts": {
-    "clean": "tsc -b --clean",
+    "clean": "tsc -b --clean && rimraf packages/*/dist playgrounds/*/dist",
     "build": "tsc -b",
-    "test": "vitest"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "author": "wuchangming",
   "license": "MIT",

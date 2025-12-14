@@ -4,6 +4,10 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -11,9 +15,10 @@
     }
   },
   "scripts": {
-    "clean": "tsc -b --clean",
-    "build": "tsc -b",
-    "test": "vitest"
+    "clean": "tsc -b --clean && node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "license": "MIT"
 }

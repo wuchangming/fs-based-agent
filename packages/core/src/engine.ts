@@ -29,6 +29,54 @@ import {
   DATA_SPACE_DIRNAME,
 } from './fsData.js';
 
+function assertValidKind(kind: string): string {
+  if (typeof kind !== 'string') {
+    throw new Error('Executor kind must be a string');
+  }
+  const trimmed = kind.trim();
+  if (!trimmed) {
+    throw new Error('Executor kind must be a non-empty string');
+  }
+  if (kind !== trimmed) {
+    throw new Error(`Executor kind "${kind}" must not have leading/trailing whitespace`);
+  }
+  if (trimmed === '.' || trimmed === '..') {
+    throw new Error(`Executor kind "${kind}" is not allowed`);
+  }
+  if (kind.includes('/') || kind.includes('\\')) {
+    throw new Error(`Executor kind "${kind}" must not contain path separators`);
+  }
+  return kind;
+}
+
+function safeResolveWithin(baseDir: string, relativePath: string, name: string): string {
+  if (typeof relativePath !== 'string') {
+    throw new Error(`${name} must be a string`);
+  }
+  const trimmed = relativePath.trim();
+  if (!trimmed) {
+    throw new Error(`${name} must be a non-empty relative path`);
+  }
+  if (relativePath.includes('\0')) {
+    throw new Error(`${name} must not contain null bytes`);
+  }
+  if (path.isAbsolute(relativePath)) {
+    throw new Error(`${name} must be a relative path`);
+  }
+  const segments = relativePath.split(/[\\/]+/);
+  if (segments.some((seg) => seg === '..')) {
+    throw new Error(`${name} must not contain ".." segments`);
+  }
+
+  const resolvedBase = path.resolve(baseDir);
+  const resolvedTarget = path.resolve(baseDir, relativePath);
+  const relative = path.relative(resolvedBase, resolvedTarget);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`${name} must resolve within ${baseDir}`);
+  }
+  return resolvedTarget;
+}
+
 export class FsContextEngine {
   private readonly root: string;
   private readonly cleanTempOnError: boolean;
@@ -45,7 +93,8 @@ export class FsContextEngine {
   createExecutor<TInput extends Record<string, unknown>>(
     params: CreateExecutorParams<TInput>
   ): Executor<TInput> {
-    const { kind, deps, fn } = params;
+    const kind = assertValidKind(params.kind);
+    const { deps, fn } = params;
 
     // Register executor
     this.executors.set(kind, {
@@ -220,7 +269,7 @@ export class FsContextEngine {
         const depFsDataPath = buildDataPath(this.root, kind, depDataId);
 
         // Create symlink under the current executor's data-space
-        const fullDepPath = path.join(tempPath, depPath);
+        const fullDepPath = safeResolveWithin(tempPath, depPath, 'depPath');
         await createDepLink(fullDepPath, depFsDataPath);
       })
     );
@@ -237,7 +286,7 @@ export class FsContextEngine {
     const dataSpacePath = path.join(dataPath, DATA_SPACE_DIRNAME);
 
     for (const [depPath, config] of Object.entries(deps)) {
-      const linkPath = path.join(dataSpacePath, depPath);
+      const linkPath = safeResolveWithin(dataSpacePath, depPath, 'depPath');
 
       // Calculate expected target path
       const expectedDataId = generateDataId(config.kind, config.input as Record<string, unknown>);
