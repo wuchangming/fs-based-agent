@@ -212,6 +212,7 @@ export function GraphView({ graph, focusKind, selectedNodeId, onSelectNode }: Gr
           padding: '12px 12px',
           border: `${isSelected ? 4 : 3}px solid ${border}`,
           boxShadow: shadow,
+          cursor: 'pointer',
           whiteSpace: 'pre-line',
           fontSize: 12,
           fontWeight: 700,
@@ -267,6 +268,8 @@ export function GraphView({ graph, focusKind, selectedNodeId, onSelectNode }: Gr
         onInit={setInstance}
         onNodeClick={(_, node) => onSelectNode(node.id)}
         onPaneClick={() => onSelectNode(null)}
+        nodesDraggable={false}
+        nodesConnectable={false}
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={16} color="#c9e6ff" />
