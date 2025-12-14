@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { runRepoWikiAgent } from './repoWikiAgent.js'
 
 

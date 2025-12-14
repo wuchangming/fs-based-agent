@@ -11,8 +11,8 @@
     }
   },
   "scripts": {
-    "clean": "rimraf dist",
-    "build": "pnpm clean && tsc",
+    "clean": "tsc -b --clean",
+    "build": "tsc -b",
     "test": "vitest"
   },
   "license": "MIT"

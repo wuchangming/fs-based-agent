@@ -5,8 +5,8 @@
   "type": "module",
   "description": "",
   "scripts": {
-    "clean": "rimraf packages/*/dist playgrounds/*/dist",
-    "build": "pnpm clean && tsc -b",
+    "clean": "tsc -b --clean",
+    "build": "tsc -b",
     "test": "vitest"
   },
   "author": "wuchangming",

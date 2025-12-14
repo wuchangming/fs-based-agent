@@ -4,14 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "clean": "rimraf dist",
-    "build": "pnpm clean && tsc"
+    "clean": "tsc -b --clean",
+    "build": "tsc -b",
+    "start": "pnpm build && node dist/index.js"
   },
   "license": "MIT",
   "dependencies": {
     "@fs-based-agent/core": "workspace:*",
     "@fs-based-agent/langchain-tools": "workspace:*",
     "@langchain/openai": "^1.2.0",
+    "dotenv": "^17.2.3",
     "langchain": "^1.2.0",
     "zod": "^4.1.13"
   }

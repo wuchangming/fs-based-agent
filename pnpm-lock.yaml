@@ -46,6 +46,9 @@ importers:
       '@langchain/openai':
         specifier: ^1.2.0
         version: 1.2.0(@langchain/core@1.1.5(openai@6.10.0(zod@4.1.13)))
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.2.3
       langchain:
         specifier: ^1.2.0
         version: 1.2.0(@langchain/core@1.1.5(openai@6.10.0(zod@4.1.13)))(openai@6.10.0(zod@4.1.13))
@@ -486,6 +489,10 @@ packages:
   decamelize@1.2.0:
     resolution: {integrity: sha512-z2S+W9X73hAUUki+N+9Za2lBlun89zigOyGrsax+KUQ6wKW4ZoWpEYBkGhQjwAjjDCkWxhY0VKEhk8wzY7F5cA==}
     engines: {node: '>=0.10.0'}
+
+  dotenv@17.2.3:
+    resolution: {integrity: sha512-JVUnt+DUIzu87TABbhPmNfVdBDt18BLOWjMUFJMSi/Qqg7NTYtabbvSNJGOJ7afbRuv9D/lngizHtP7QyLQ+9w==}
+    engines: {node: '>=12'}
 
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
@@ -1171,6 +1178,8 @@ snapshots:
       which: 2.0.2
 
   decamelize@1.2.0: {}
+
+  dotenv@17.2.3: {}
 
   eastasianwidth@0.2.0: {}
 
