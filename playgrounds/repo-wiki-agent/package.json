@@ -15,6 +15,7 @@
     "@langchain/openai": "^1.2.0",
     "dotenv": "^17.2.3",
     "langchain": "^1.2.0",
+    "mdts": "^0.14.0",
     "zod": "^4.1.13"
   }
 }
