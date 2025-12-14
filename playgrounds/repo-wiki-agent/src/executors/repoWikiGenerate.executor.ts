@@ -18,20 +18,16 @@ export const repoWikiGenerateInputSchema = z
   .object({
     repoUrl: z.string().min(1).describe('Git repository url (same as repo-wiki-context.repoUrl)'),
     branch: z.string().min(1).optional().describe('Git branch/tag (optional)'),
-    recursionLimit: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .default(2000)
-      .describe('LangChain recursion limit (default: 2000)'),
   })
-  .passthrough()
+  .loose()
   .describe('Generate wiki docs for a repository');
 
 export type RepoWikiGenerateInput = z.infer<typeof repoWikiGenerateInputSchema>;
 
 export interface RepoWikiGenerateExecutorOptions {
   wikiOutputDir: string;
+  /** LangChain recursion limit (default: 2000) */
+  recursionLimit?: number;
   /** Dep key mounted in data-space that is already the repo directory (default: "repo") */
   repoDepKey?: string;
   /** Dep key mounted in data-space (default: "context") */
@@ -55,13 +51,12 @@ export function createRepoWikiGenerateExecutorFn(options: RepoWikiGenerateExecut
   const contextKey = options.contextDepKey ?? 'context';
   const wikiOutputDir = options.wikiOutputDir;
   const repoDepKey = options.repoDepKey ?? 'repo';
+  const recursionLimit =
+    typeof options.recursionLimit === 'number' && Number.isFinite(options.recursionLimit)
+      ? Math.max(1, Math.floor(options.recursionLimit))
+      : 2000;
 
   return async (input: RepoWikiGenerateInput, dataDir: string): Promise<FnResult> => {
-    const recursionLimit =
-      typeof input.recursionLimit === 'number' && Number.isFinite(input.recursionLimit)
-        ? Math.max(1, Math.floor(input.recursionLimit))
-        : 2000;
-
     // Prepare workspace:
     // - when deps mounts repo directly under `repo/`, do nothing
     // - otherwise create `repo/` symlink for the prompt convention

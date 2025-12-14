@@ -9,7 +9,7 @@ export const gitCloneInputSchema = z
         url: z.string().min(1).describe("Git repository url (https or ssh)"),
         branch: z.string().min(1).optional().describe("Git branch/tag (optional)"),
     })
-    .passthrough()
+    .loose()
     .describe("Clone a git repository into repo/");
 
 export type GitCloneInput = z.infer<typeof gitCloneInputSchema>;

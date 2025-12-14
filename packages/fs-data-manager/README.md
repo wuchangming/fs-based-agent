@@ -16,15 +16,15 @@ import { z } from 'zod';
 
 const manager = new FsDataManager('/tmp/fs-data-root');
 
-// Register executors (same signature as FsContextEngine.createExecutor)
-const cloneRepo = manager.registerExecutor({
-  kind: 'repo',
-  inputSchema: z.object({ url: z.string().min(1) }).passthrough(),
-  fn: async (input, dir) => {
-    // ...
-    return { entry: 'repo' };
-  },
-});
+	// Register executors (same signature as FsContextEngine.createExecutor)
+	const cloneRepo = manager.registerExecutor({
+	  kind: 'repo',
+	  inputSchema: z.object({ url: z.string().min(1) }).loose(),
+	  fn: async (input, dir) => {
+	    // ...
+	    return { entry: 'repo' };
+	  },
+	});
 
 manager.registerExecutor({
   kind: 'workspace',

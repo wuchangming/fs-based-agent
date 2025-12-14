@@ -10,7 +10,7 @@ export const repoWikiContextInputSchema = z
         repoUrl: z.string().min(1).describe("Git repository url (same as git-clone.url)"),
         branch: z.string().min(1).optional().describe("Git branch/tag (optional)"),
     })
-    .passthrough()
+    .loose()
     .describe("Create a workspace that contains repo/ and wiki output directories");
 
 export type RepoWikiContextInput = z.infer<typeof repoWikiContextInputSchema>;

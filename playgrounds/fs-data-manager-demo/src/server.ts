@@ -16,7 +16,7 @@ const sampleTextInputSchema = z
   .object({
     text: z.string().min(1).describe('Text content to write into text/text.txt'),
   })
-  .passthrough()
+  .loose()
   .describe('Create a text artifact under data-space');
 
 const sample = manager.registerExecutor({

@@ -29,7 +29,7 @@ Repo Wiki Agent demo wired to `@fs-based-agent/fs-data-manager` (API + UI).
 - Fill:
   - `repoUrl` (string, required)
   - `branch` (string, optional)
-  - `recursionLimit` (number, optional; default 2000)
+  - The recursion limit is configured in code via `createRepoWikiGenerateExecutorFn({ recursionLimit })` (default: 2000).
 
 Outputs:
 - `repo-wiki-generate` entry points to `wiki-output/` for the generated docs.
