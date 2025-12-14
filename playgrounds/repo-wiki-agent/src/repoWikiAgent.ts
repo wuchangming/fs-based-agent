@@ -7,7 +7,7 @@ import {
     createGlobTool,
 } from "@fs-based-agent/langchain-tools";
 import { createAgent, HumanMessage, SystemMessage } from "langchain";
-import { llm } from "./llm.js";
+import { getLLM } from "./llm.js";
 import { createGitCloneExecutor } from "./executors/gitClone.executor.js";
 import { setupRepoWikiContext } from "./executors/repoWikiAgentCtx.executor.js";
 import {
@@ -68,7 +68,7 @@ export async function runRepoWikiAgent(
 
     // Create the agent
     const agent = createAgent({
-        model: llm,
+        model: getLLM(),
         tools,
     });
 
@@ -80,6 +80,8 @@ export async function runRepoWikiAgent(
             new SystemMessage(REPO_WIKI_SYSTEM_PROMPT),
             new HumanMessage(WIKI_GENERATION_PROMPT),
         ],
+    }, {
+        recursionLimit: 2000
     });
 
     console.log("Wiki generation completed!");
