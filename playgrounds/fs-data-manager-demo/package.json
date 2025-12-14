@@ -1,0 +1,16 @@
+{
+  "name": "fs-data-manager-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/server.ts"
+  },
+  "dependencies": {
+    "@fs-based-agent/fs-data-manager": "workspace:*",
+    "@fs-based-agent/core": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "paths": {
+      "@fs-based-agent/core": ["../../packages/core/src"],
+      "@fs-based-agent/core/*": ["../../packages/core/src/*"],
+      "@fs-based-agent/fs-data-manager": ["../../packages/fs-data-manager/src"],
+      "@fs-based-agent/fs-data-manager/*": ["../../packages/fs-data-manager/src/*"]
+    }
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../../packages/core" },
+    { "path": "../../packages/fs-data-manager" }
+  ]
+}

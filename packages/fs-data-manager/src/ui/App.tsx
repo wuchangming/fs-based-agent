@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { FsDataGraph } from '../types.js';
 import { GraphView } from './GraphView.js';
 import { NodeList } from './NodeList.js';
 import { RegisteredExecutors } from './RegisteredExecutors.js';
@@ -8,13 +9,42 @@ export function App() {
   const {
     graph,
     executors,
+    selectedKind,
+    selectedExecutor,
     loading,
     error,
+    lastEntryPath,
     refresh,
+    setSelectedKind,
     reExecuteNode,
     executeExecutor,
-    lastEntryPath,
   } = useGraphData();
+
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+  const filteredGraph = useMemo(() => {
+    return buildExecutorGraph(graph, selectedKind, Boolean(selectedExecutor?.hasDeps));
+  }, [graph, selectedExecutor?.hasDeps, selectedKind]);
+
+  const focusCount = useMemo(() => {
+    if (!selectedKind) return 0;
+    return filteredGraph.nodes.filter((n) => n.kind === selectedKind).length;
+  }, [filteredGraph.nodes, selectedKind]);
+
+  const depCount = useMemo(() => {
+    if (!selectedKind) return 0;
+    return filteredGraph.nodes.filter((n) => n.kind !== selectedKind).length;
+  }, [filteredGraph.nodes, selectedKind]);
+
+  useEffect(() => {
+    setSelectedNodeId(null);
+  }, [selectedKind]);
+
+  useEffect(() => {
+    if (selectedNodeId && !filteredGraph.nodes.some((n) => n.id === selectedNodeId)) {
+      setSelectedNodeId(null);
+    }
+  }, [filteredGraph.nodes, selectedNodeId]);
 
   const headline = useMemo(() => {
     if (loading) return 'Loading fs-data graph...';
@@ -29,7 +59,8 @@ export function App() {
           <p className="eyebrow">fs-based-agent</p>
           <h1>{headline}</h1>
           <p className="lede">
-            Explore the FsData DAG, inspect manifests, and re-run individual nodes with fresh cache.
+            Select an executor, explore its FsData instances and dependencies, and re-run a single
+            node with fresh cache.
           </p>
         </div>
         <div className="header-actions">
@@ -44,70 +75,91 @@ export function App() {
 
       <main className="layout">
         <section className="panel">
-<<<<<<< ours
-          {graph ? (
-            <GraphView graph={graph} />
-=======
           <div className="selector-row">
-            <div>
-              <div className="eyebrow">选择 executor</div>
+            <div className="selector-left">
+              <div className="eyebrow">Executor</div>
               <select
                 value={selectedKind ?? ''}
                 onChange={(e) => setSelectedKind(e.target.value || null)}
+                disabled={!executors.length}
               >
+                {!executors.length && <option value="">No executors</option>}
                 {executors.map((ex) => (
                   <option key={ex.kind} value={ex.kind}>
                     {ex.label || ex.kind}
                   </option>
                 ))}
               </select>
+              {selectedKind && (
+                <div className="meta">
+                  nodes: {focusCount}
+                  {selectedExecutor?.hasDeps ? `, deps: ${depCount}` : ''}
+                </div>
+              )}
+            </div>
+            <div className="selector-right">
+              {selectedExecutor?.hasDeps ? (
+                <span className="badge">deps enabled</span>
+              ) : (
+                selectedKind && <span className="badge muted">no deps</span>
+              )}
             </div>
           </div>
-          {graph && selectedKind ? (
+
+          {selectedKind ? (
             <GraphView
-              graph={filtered}
-              primaryKind={selectedKind}
+              graph={filteredGraph}
+              focusKind={selectedKind}
               selectedNodeId={selectedNodeId}
               onSelectNode={setSelectedNodeId}
             />
->>>>>>> theirs
           ) : (
-            <div className="card muted">Waiting for graph data...</div>
+            <div className="card muted">请选择一个 executor。</div>
           )}
         </section>
+
         <section className="panel list-panel">
-          {graph ? (
-            <NodeList graph={graph} onReExecute={reExecuteNode} />
-          ) : (
-            <div className="card muted">暂无 FsData 节点，先运行一个 executor 吧。</div>
-          )}
+          <NodeList graph={filteredGraph} selectedNodeId={selectedNodeId} onReExecute={reExecuteNode} />
           <RegisteredExecutors executors={executors} onExecute={executeExecutor} />
         </section>
       </main>
     </div>
   );
 }
-<<<<<<< ours
-=======
 
-function filterGraph(graph: FsDataGraph | null, kind: string): FsDataGraph {
-  if (!graph) return { nodes: [], edges: [] };
-  const selectedNodes = graph.nodes.filter((n) => n.kind === kind);
-  const includeIds = new Set<string>();
-  const includeEdges: typeof graph.edges = [];
+function buildExecutorGraph(
+  graph: FsDataGraph | null,
+  kind: string | null,
+  includeDeps: boolean
+): FsDataGraph {
+  if (!graph || !kind) return { nodes: [], edges: [] };
 
-  for (const node of selectedNodes) {
-    includeIds.add(node.id);
+  const focusNodes = graph.nodes.filter((n) => n.kind === kind);
+  if (!includeDeps) {
+    return { nodes: focusNodes, edges: [] };
   }
 
-  for (const edge of graph.edges) {
-    if (includeIds.has(edge.target)) {
-      includeIds.add(edge.source);
-      includeEdges.push(edge);
+  const includeIds = new Set<string>(focusNodes.map((n) => n.id));
+  const includeEdgeMap = new Map<string, (typeof graph.edges)[number]>();
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const edge of graph.edges) {
+      if (includeIds.has(edge.target)) {
+        includeEdgeMap.set(edge.id, edge);
+        if (!includeIds.has(edge.source)) {
+          includeIds.add(edge.source);
+          changed = true;
+        }
+      }
     }
   }
 
   const nodes = graph.nodes.filter((n) => includeIds.has(n.id));
-  return { nodes, edges: includeEdges };
+  const edges = Array.from(includeEdgeMap.values()).filter(
+    (e) => includeIds.has(e.source) && includeIds.has(e.target)
+  );
+
+  return { nodes, edges };
 }
->>>>>>> theirs

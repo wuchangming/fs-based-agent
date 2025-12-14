@@ -1,46 +1,64 @@
-import { useMemo } from 'react';
-import { ReactFlow, Background, Controls, MarkerType } from 'reactflow';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Background,
+  Controls,
+  MarkerType,
+  Position as RFPosition,
+  ReactFlow,
+  type ReactFlowInstance,
+} from 'reactflow';
 import type { FsDataGraph } from '../types.js';
 import 'reactflow/dist/style.css';
 
 interface GraphViewProps {
   graph: FsDataGraph;
+  focusKind: string;
+  selectedNodeId: string | null;
+  onSelectNode: (nodeId: string | null) => void;
 }
 
-interface Position {
+interface Coord {
   x: number;
   y: number;
 }
 
-function computePositions(graph: FsDataGraph): Record<string, Position> {
+function computePositions(graph: FsDataGraph): Record<string, Coord> {
   const incomingCount = new Map<string, number>();
   const outgoing = new Map<string, string[]>();
+  const predecessors = new Map<string, string[]>();
 
   for (const node of graph.nodes) {
     incomingCount.set(node.id, 0);
     outgoing.set(node.id, []);
+    predecessors.set(node.id, []);
   }
 
   for (const edge of graph.edges) {
     incomingCount.set(edge.target, (incomingCount.get(edge.target) ?? 0) + 1);
     outgoing.get(edge.source)?.push(edge.target);
+    predecessors.get(edge.target)?.push(edge.source);
   }
 
-  const queue: string[] = [];
-  for (const [id, indeg] of incomingCount.entries()) {
-    if (indeg === 0) queue.push(id);
-  }
+  // Longest-path layering (DAG)
+  const indegree = new Map(incomingCount);
+  const queue = [...indegree.entries()]
+    .filter(([, deg]) => deg === 0)
+    .map(([id]) => id)
+    .sort();
 
   const layers = new Map<string, number>();
   while (queue.length) {
-    const current = queue.shift()!;
+    const current = queue.shift();
+    if (!current) break;
     const layer = layers.get(current) ?? 0;
     for (const next of outgoing.get(current) ?? []) {
-      const nextLayer = Math.max(layers.get(next) ?? 0, layer + 1);
-      layers.set(next, nextLayer);
-      const newIn = (incomingCount.get(next) ?? 1) - 1;
-      incomingCount.set(next, newIn);
-      if (newIn === 0) queue.push(next);
+      layers.set(next, Math.max(layers.get(next) ?? 0, layer + 1));
+      const newIn = (indegree.get(next) ?? 1) - 1;
+      indegree.set(next, newIn);
+      if (newIn === 0) {
+        queue.push(next);
+        queue.sort();
+      }
     }
   }
 
@@ -51,115 +69,194 @@ function computePositions(graph: FsDataGraph): Record<string, Position> {
     grouped.get(layer)!.push(node.id);
   }
 
-  const positions: Record<string, Position> = {};
-  const xSpacing = 240;
-  const ySpacing = 170;
+  const columnsByLayer = new Map<number, Map<string, number>>();
+  const sortedLayers = [...grouped.keys()].sort((a, b) => a - b);
 
-  for (const [layer, ids] of grouped.entries()) {
-    ids
-      .slice()
-      .sort()
-      .forEach((id, idx) => {
-      positions[id] = { x: idx * xSpacing, y: layer * ySpacing };
+  // Assign roots first
+  const roots = (grouped.get(0) ?? []).slice().sort();
+  const rootCols = new Map<string, number>();
+  roots.forEach((id, idx) => rootCols.set(id, idx));
+  columnsByLayer.set(0, rootCols);
+
+  for (const layer of sortedLayers) {
+    if (layer === 0) continue;
+    const ids = (grouped.get(layer) ?? []).slice();
+    const cols = new Map<string, number>();
+    const used = new Set<number>();
+
+    const scored = ids.map((id) => {
+      const preds = predecessors.get(id) ?? [];
+      const predCols = preds
+        .map((p) => {
+          const predLayer = layers.get(p) ?? 0;
+          return columnsByLayer.get(predLayer)?.get(p);
+        })
+        .filter((c): c is number => c !== undefined);
+      const avg = predCols.length ? predCols.reduce((a, b) => a + b, 0) / predCols.length : Infinity;
+      return { id, avg };
     });
+
+    scored.sort((a, b) => a.avg - b.avg || a.id.localeCompare(b.id));
+
+    for (const { id, avg } of scored) {
+      const preferred = Number.isFinite(avg) ? Math.max(0, Math.round(avg)) : 0;
+      let candidate = preferred;
+      while (used.has(candidate)) candidate += 1;
+      cols.set(id, candidate);
+      used.add(candidate);
+    }
+
+    // Compress columns to keep graph compact
+    const ordered = [...cols.entries()].sort((a, b) => (a[1] ?? 0) - (b[1] ?? 0));
+    const remapped = new Map<string, number>();
+    ordered.forEach(([id], idx) => remapped.set(id, idx));
+    columnsByLayer.set(layer, remapped);
+  }
+
+  // Re-center roots above their children (optional, improves fan-out)
+  const rootUsed = new Set<number>();
+  const desiredRoots = roots.map((id) => {
+    const children = outgoing.get(id) ?? [];
+    const childCols = children
+      .map((child) => columnsByLayer.get((layers.get(child) ?? 1))?.get(child))
+      .filter((c): c is number => c !== undefined);
+    const desired = childCols.length ? childCols.reduce((a, b) => a + b, 0) / childCols.length : (rootCols.get(id) ?? 0);
+    return { id, desired };
+  });
+  desiredRoots.sort((a, b) => a.desired - b.desired || a.id.localeCompare(b.id));
+
+  for (const { id, desired } of desiredRoots) {
+    const preferred = Math.max(0, Math.round(desired));
+    let candidate = preferred;
+    let offset = 0;
+    while (true) {
+      const left = preferred - offset;
+      const right = preferred + offset;
+      if (left >= 0 && !rootUsed.has(left)) {
+        candidate = left;
+        break;
+      }
+      if (!rootUsed.has(right)) {
+        candidate = right;
+        break;
+      }
+      offset += 1;
+      if (offset > 200) break;
+    }
+    rootCols.set(id, candidate);
+    rootUsed.add(candidate);
+  }
+
+  // Positions
+  const xSpacing = 280;
+  const ySpacing = 210;
+  const positions: Record<string, Coord> = {};
+
+  for (const node of graph.nodes) {
+    const layer = layers.get(node.id) ?? 0;
+    const col = columnsByLayer.get(layer)?.get(node.id) ?? 0;
+    positions[node.id] = { x: col * xSpacing, y: layer * ySpacing };
   }
 
   return positions;
 }
 
-export function GraphView({ graph }: GraphViewProps) {
+export function GraphView({ graph, focusKind, selectedNodeId, onSelectNode }: GraphViewProps) {
+  const [instance, setInstance] = useState<ReactFlowInstance | null>(null);
   const positions = useMemo(() => computePositions(graph), [graph]);
+  const graphKey = useMemo(() => {
+    const nodeKey = graph.nodes
+      .map((n) => n.id)
+      .slice()
+      .sort()
+      .join('|');
+    const edgeKey = graph.edges
+      .map((e) => e.id)
+      .slice()
+      .sort()
+      .join('|');
+    return `${focusKind}::${nodeKey}::${edgeKey}`;
+  }, [focusKind, graph.edges, graph.nodes]);
 
-  const nodes = useMemo(
-    () =>
-<<<<<<< ours
-<<<<<<< ours
-=======
->>>>>>> theirs
-      graph.nodes.map((node) => ({
+  const nodes = useMemo(() => {
+    return graph.nodes.map((node) => {
+      const isFocus = node.kind === focusKind;
+      const isSelected = selectedNodeId === node.id;
+      const bg = isSelected ? '#0b9e89' : isFocus ? '#0f766e' : '#0b4f6c';
+      const border = isSelected ? '#38bdf8' : isFocus ? '#0ea5e9' : '#3b82f6';
+      const shadow = isSelected
+        ? '0 14px 40px rgba(56, 189, 248, 0.35)'
+        : '0 10px 30px rgba(15, 118, 110, 0.22)';
+
+      return {
         id: node.id,
         position: positions[node.id] ?? { x: 0, y: 0 },
         data: { label: `${node.kind}\n${node.dataId.slice(0, 6)}` },
+        targetPosition: RFPosition.Top,
+        sourcePosition: RFPosition.Bottom,
         style: {
-          background: '#0f766e',
+          background: bg,
           color: '#e7fff9',
-          borderRadius: 12,
-          padding: '12px 10px',
-          border: '1px solid #0ea5e9',
-          boxShadow: '0 6px 20px rgba(15, 118, 110, 0.35)',
+          borderRadius: 14,
+          padding: '12px 12px',
+          border: `${isSelected ? 4 : 3}px solid ${border}`,
+          boxShadow: shadow,
           whiteSpace: 'pre-line',
           fontSize: 12,
-          fontWeight: 600,
+          fontWeight: 700,
+          outline: isSelected ? '6px solid rgba(56, 189, 248, 0.16)' : 'none',
+          outlineOffset: 2,
+          transition: 'box-shadow 150ms ease, border-color 150ms ease, outline-color 150ms ease',
+          zIndex: isSelected ? 10 : 0,
         },
-      })),
-    [graph.nodes, positions]
-<<<<<<< ours
-=======
-      graph.nodes.map((node) => {
-        const isPrimary = primaryKind ? node.kind === primaryKind : true;
-        const isSelected = selectedNodeId === node.id;
-        const bg = isPrimary ? '#0f766e' : '#0b4f6c';
-        const border = isSelected ? '#38bdf8' : '#0ea5e9';
+      };
+    });
+  }, [focusKind, graph.nodes, positions, selectedNodeId]);
 
-        return {
-          id: node.id,
-          position: positions[node.id] ?? { x: 0, y: 0 },
-          data: { label: `${node.kind}\n${node.dataId.slice(0, 6)}` },
-          targetPosition: RFPosition.Top,
-          sourcePosition: RFPosition.Bottom,
-          selected: isSelected,
-          style: {
-            background: bg,
-            color: '#e7fff9',
-            borderRadius: 12,
-            padding: '12px 10px',
-            border: `2px solid ${border}`,
-            boxShadow: '0 6px 20px rgba(15, 118, 110, 0.35)',
-            whiteSpace: 'pre-line',
-            fontSize: 12,
-            fontWeight: 600,
-            opacity: isPrimary || isSelected ? 1 : 0.9,
-          },
-        };
-      }),
-    [graph.nodes, positions, primaryKind, selectedNodeId]
->>>>>>> theirs
-=======
->>>>>>> theirs
-  );
+  const edges = useMemo(() => {
+    return graph.edges.map((edge) => {
+      const isActive = selectedNodeId
+        ? edge.source === selectedNodeId || edge.target === selectedNodeId
+        : false;
+      const stroke = isActive ? '#38bdf8' : '#0ea5e9';
+      const dash = isActive ? '0' : '6 4';
 
-  const edges = useMemo(
-    () =>
-      graph.edges.map((edge) => ({
+      return {
         id: edge.id,
         source: edge.source,
         target: edge.target,
         label: edge.label,
+        type: 'smoothstep' as const,
         labelBgPadding: [6, 3] as [number, number],
         labelBgBorderRadius: 6,
-<<<<<<< ours
-<<<<<<< ours
-        style: { stroke: '#0ea5e9' },
-=======
-        style: { stroke: '#0ea5e9', strokeDasharray: '6 6' },
->>>>>>> theirs
-=======
-        style: { stroke: '#0ea5e9' },
->>>>>>> theirs
-        labelStyle: { fill: '#0b3c4b', fontWeight: 600 },
-        animated: true,
-        type: 'smoothstep',
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: '#0ea5e9',
-        },
-      })),
-    [graph.edges]
-  );
+        style: { stroke, strokeWidth: isActive ? 3 : 2, strokeDasharray: dash },
+        labelStyle: { fill: '#0b3c4b', fontWeight: 700 },
+        animated: false,
+        markerEnd: { type: MarkerType.ArrowClosed, color: stroke },
+      };
+    });
+  }, [graph.edges, selectedNodeId]);
+
+  useEffect(() => {
+    if (!instance) return;
+    if (!nodes.length) return;
+    instance.fitView({ padding: 0.25, duration: 250 });
+  }, [instance, graphKey, nodes.length]);
+
+  if (!graph.nodes.length) {
+    return <div className="card muted">No nodes for this executor yet. Run it once to generate FsData.</div>;
+  }
 
   return (
     <div className="graph-view">
-      <ReactFlow nodes={nodes} edges={edges} fitView proOptions={{ hideAttribution: true }}>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onInit={setInstance}
+        onNodeClick={(_, node) => onSelectNode(node.id)}
+        onPaneClick={() => onSelectNode(null)}
+        proOptions={{ hideAttribution: true }}
+      >
         <Background gap={16} color="#c9e6ff" />
         <Controls position="top-right" />
       </ReactFlow>

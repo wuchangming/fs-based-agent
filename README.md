@@ -5,6 +5,7 @@ File-system-first agent toolkit. The core is a cacheable/replayable FsContextEng
 ## Packages
 - `packages/core` (`@fs-based-agent/core`): FsContextEngine implementing the “everything is FsData” execution/cache model.
 - `packages/langchain-tools` (`@fs-based-agent/langchain-tools`): LangChain `Tool` set for local repos (list/search/read/write files) with guardrails and output limits.
+- `packages/fs-data-manager` (`@fs-based-agent/fs-data-manager`): Service + React dashboard to register executors, inspect the FsData DAG, and re-run individual nodes.
 
 ## Core design: @fs-based-agent/core
 - **FsData layout**: Artifacts live in `fs-data/<version>/<kind>/<shard>/<dataId>/` with `.fs-data-manifest.json` (input/metadata) and `dataLink` (points into `data-space`). `dataId` is a stable MD5 of `{ kind, input }`, sharded for FS scalability.

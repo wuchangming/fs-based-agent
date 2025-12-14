@@ -70,6 +70,36 @@ h1 {
   height: 620px;
 }
 
+.selector-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e6edf5;
+}
+
+.selector-left {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.selector-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+select {
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid #cbd8e6;
+  background: #f8fbff;
+  font-weight: 700;
+  min-width: 240px;
+}
+
 .card {
   background: #fff;
   border: 1px solid #dfeaf5;
@@ -129,6 +159,15 @@ h1 {
   border-radius: 10px;
   font-size: 12px;
   border: 1px solid #b6e1ff;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.badge.muted {
+  background: #eef2f7;
+  color: #475569;
+  border-color: #d6dee8;
 }
 
 .payload {

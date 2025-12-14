@@ -94,3 +94,29 @@ export interface RegisteredExecutor {
   deps?: Record<string, ExecutorConfig<unknown>>;
   fn: (input: unknown, dataDir: string) => Promise<FnResult>;
 }
+
+/**
+ * Symlink dependency info discovered under data-space
+ */
+export interface FsDataDepLink {
+  /** Symlink path relative to data-space */
+  linkPath: string;
+  /** Target FsData kind */
+  targetKind: string;
+  /** Target FsData dataId */
+  targetDataId: string;
+  /** Target FsData absolute directory path */
+  targetPath: string;
+}
+
+/**
+ * FsData node information (manifest + deps)
+ */
+export interface FsDataNodeInfo {
+  kind: string;
+  dataId: string;
+  dataPath: string;
+  entryPath: string | null;
+  manifest: FsDataManifest;
+  deps: FsDataDepLink[];
+}

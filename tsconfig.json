@@ -43,7 +43,9 @@
   "references": [
     { "path": "./packages/core" },
     { "path": "./packages/langchain-tools" },
-    { "path": "./playgrounds/repo-wiki-agent" }
+    { "path": "./packages/fs-data-manager" },
+    { "path": "./playgrounds/repo-wiki-agent" },
+    { "path": "./playgrounds/fs-data-manager-demo" }
   ],
   "files": []
 }

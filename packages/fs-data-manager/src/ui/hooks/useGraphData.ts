@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FsDataGraph } from '../../types.js';
-import { fetchGraph, reExecute, execute } from '../api.js';
+import { execute, fetchGraph, reExecute, type GraphResponse } from '../api.js';
+
+export type ExecutorSummary = GraphResponse['executors'][number];
 
 interface State {
   graph: FsDataGraph | null;
-  executors: { kind: string; label?: string; description?: string }[];
+  executors: ExecutorSummary[];
+  selectedKind: string | null;
   loading: boolean;
   error: string | null;
   lastEntryPath: string | null;
@@ -14,6 +17,7 @@ export function useGraphData() {
   const [state, setState] = useState<State>({
     graph: null,
     executors: [],
+    selectedKind: null,
     loading: true,
     error: null,
     lastEntryPath: null,
@@ -23,24 +27,31 @@ export function useGraphData() {
     setState((prev) => ({ ...prev, loading: true, error: null }));
     try {
       const { graph, executors } = await fetchGraph();
-      setState((prev) => ({ ...prev, graph, executors, loading: false }));
+      setState((prev) => {
+        const stillValid = prev.selectedKind && executors.some((ex) => ex.kind === prev.selectedKind);
+        const selectedKind = stillValid ? prev.selectedKind : executors[0]?.kind ?? null;
+        return { ...prev, graph, executors, selectedKind, loading: false };
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setState((prev) => ({ ...prev, error: message, loading: false }));
     }
   }, []);
 
-  const reExecuteNode = useCallback(async (kind: string, dataId: string) => {
-    setState((prev) => ({ ...prev, loading: true, error: null }));
-    try {
-      const entryPath = await reExecute(kind, dataId);
-      await loadGraph();
-      setState((prev) => ({ ...prev, lastEntryPath: entryPath }));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setState((prev) => ({ ...prev, error: message, loading: false }));
-    }
-  }, [loadGraph]);
+  const reExecuteNode = useCallback(
+    async (kind: string, dataId: string) => {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+      try {
+        const entryPath = await reExecute(kind, dataId);
+        await loadGraph();
+        setState((prev) => ({ ...prev, lastEntryPath: entryPath }));
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        setState((prev) => ({ ...prev, error: message, loading: false }));
+      }
+    },
+    [loadGraph]
+  );
 
   const executeExecutor = useCallback(
     async (kind: string, input: Record<string, unknown>, skipCache = false) => {
@@ -61,10 +72,17 @@ export function useGraphData() {
     void loadGraph();
   }, [loadGraph]);
 
+  const selectedExecutor = useMemo(
+    () => state.executors.find((ex) => ex.kind === state.selectedKind) ?? null,
+    [state.executors, state.selectedKind]
+  );
+
   return {
     ...state,
+    selectedExecutor,
     refresh: loadGraph,
     reExecuteNode,
     executeExecutor,
+    setSelectedKind: (kind: string | null) => setState((prev) => ({ ...prev, selectedKind: kind })),
   };
 }

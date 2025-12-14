@@ -16,9 +16,11 @@ const sample = manager.registerExecutor({
   label: 'sample-text',
   fn: async ({ text }: { text: string }, dir: string) => {
     const fs = await import('fs/promises');
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(`${dir}/text.txt`, text, 'utf8');
-    return { entry: 'text.txt', metadata: { title: text.slice(0, 20) } };
+    const value = typeof text === 'string' && text.length ? text : 'hello fs-data-manager';
+    const textDir = path.join(dir, 'text');
+    await fs.mkdir(textDir, { recursive: true });
+    await fs.writeFile(path.join(textDir, 'text.txt'), value, 'utf8');
+    return { entry: 'text', metadata: { title: value.slice(0, 20) } };
   },
 });
 
@@ -26,11 +28,11 @@ const summary = manager.registerExecutor({
   kind: 'text-summary',
   label: 'text-summary',
   deps: {
-    source: sample.config({ input: { text: 'hello fs-data-manager' } }),
+    source: sample.config({ input: { text: 'hello fs-data-manager' }, skipCache: true }),
   },
   fn: async (_input: Record<string, unknown>, dir: string) => {
     const fs = await import('fs/promises');
-    const raw = await fs.readFile(`${dir}/source/text.txt`, 'utf8');
+    const raw = await fs.readFile(path.join(dir, 'source', 'text.txt'), 'utf8');
     const summaryText = `len=${raw.length}, upper=${raw.toUpperCase()}`;
     await fs.writeFile(`${dir}/summary.txt`, summaryText, 'utf8');
     return { entry: 'summary.txt', metadata: { title: summaryText.slice(0, 20) } };
@@ -100,7 +102,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     const body = await parseBody(req);
     try {
       const text = (body.text as string | undefined) ?? 'hello fs-data-manager';
-      const entryPath = await summary({ input: { text }, skipCache: Boolean(body.skipCache) });
+      const entryPath = await summary({ input: { text }, skipCache: true });
       return sendJson(res, 200, { entryPath });
     } catch (err) {
       return sendJson(res, 500, { error: err instanceof Error ? err.message : String(err) });
@@ -109,7 +111,13 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
 
   if (method === 'GET' && url === '/api/graph') {
     const graph = await manager.getGraph();
-    return sendJson(res, 200, { graph, executors: manager.listExecutors() });
+    const executors = manager.listExecutors().map((ex) => ({
+      kind: ex.kind,
+      label: ex.label,
+      description: ex.description,
+      hasDeps: Boolean(ex.deps && Object.keys(ex.deps).length),
+    }));
+    return sendJson(res, 200, { graph, executors });
   }
 
   const executeMatch = url.match(/^\/api\/executors\/([^/]+)\/execute$/);
