@@ -203,6 +203,125 @@ pre {
   border-bottom: none;
 }
 
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 28, 40, 0.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 1000;
+}
+
+.modal {
+  width: min(860px, 100%);
+  max-height: min(86vh, 820px);
+  overflow: auto;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #dceffd;
+  box-shadow: 0 26px 80px rgba(11, 54, 79, 0.25);
+  border-radius: 18px;
+  padding: 16px 16px 18px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modal-body {
+  margin-top: 12px;
+}
+
+.form-row {
+  margin-top: 8px;
+}
+
+.checkbox {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  font-weight: 600;
+  color: #0b3c4b;
+}
+
+.checkbox input {
+  width: 16px;
+  height: 16px;
+}
+
+.kv {
+  margin-top: 12px;
+  border: 1px solid #dfeaf5;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(248, 251, 255, 0.8);
+}
+
+.kv-head {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr 2fr 80px;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #f2f8ff;
+  border-bottom: 1px solid #e6edf5;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #0a3750;
+}
+
+.kv-row {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr 2fr 80px;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 12px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.kv-row:last-child {
+  border-bottom: none;
+}
+
+.kv-row input,
+.kv-row select,
+.kv-row textarea {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #cbd8e6;
+  background: #ffffff;
+  padding: 8px 10px;
+  font-weight: 600;
+  font-family: 'IBM Plex Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  color: #0b1d2a;
+}
+
+.kv-row textarea {
+  resize: vertical;
+  min-height: 44px;
+}
+
+.kv-footer {
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #ffffff;
+}
+
 .alert {
   margin: 16px 0 0;
   padding: 12px 14px;
@@ -254,5 +373,13 @@ button:hover {
   }
   .graph-view {
     height: 420px;
+  }
+  .kv-head,
+  .kv-row {
+    grid-template-columns: 1fr;
+  }
+  .kv-footer {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
