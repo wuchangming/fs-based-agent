@@ -7,5 +7,8 @@
     "clean": "rimraf dist",
     "build": "pnpm clean && tsc"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "langchain": "^1.2.0"
+  }
 }
