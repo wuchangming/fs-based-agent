@@ -8,13 +8,12 @@ import {
 } from "@fs-based-agent/langchain-tools";
 import { createAgent, HumanMessage, SystemMessage } from "langchain";
 import { getLLM } from "./llm.js";
-import { createGitCloneExecutor } from "./executors/gitClone.executor.js";
 import { setupRepoWikiContext } from "./repoWikiAgent.context.js";
 import {
-    REPO_WIKI_SYSTEM_PROMPT,
     WIKI_GENERATION_PROMPT,
+    createRepoWikiSystemPrompt,
 } from "./repoWikiAgent.prompt.js";
-import { FS_DATA_FOLDER } from "./constants.js";
+import { FS_DATA_FOLDER, WIKI_OUTPUT_DIR } from "./constants.js";
 import { uniqueIdMiddleware } from "./fix/uniqueIdMiddleware.js";
 
 export interface RepoWikiAgentOptions {
@@ -44,21 +43,22 @@ export async function runRepoWikiAgent(
     const engine = new FsContextEngine({ root: FS_DATA_FOLDER });
 
     // Create executors
-    const cloneRepo = createGitCloneExecutor(engine);
-    const createContext = setupRepoWikiContext(engine, cloneRepo);
+    const createContext = setupRepoWikiContext(engine, WIKI_OUTPUT_DIR);
 
     // Execute context - get the workspace path
     const contextPath = await createContext({
         repoUrl,
         branch,
     });
+    const repoPath = `${contextPath}/repo`;
+    const wikiOutputPath = `${contextPath}/${WIKI_OUTPUT_DIR}`;
 
     console.log(`Context path: ${contextPath}`);
-    console.log(`Repository at: ${contextPath}/repo`);
-    console.log(`Wiki output at: ${contextPath}/wiki-output`);
+    console.log(`Repository at: ${repoPath}`);
+    console.log(`Wiki output at: ${wikiOutputPath}`);
 
     // Create tools scoped to the context path
-    // The prompt tells the agent: repo is in ./repo, write wiki to ./wiki-output
+    // The prompt tells the agent: repo is in ./repo, write wiki to ./WIKI_OUTPUT_DIR
     const tools = [
         createLSTool({ rootPath: contextPath }),
         createGrepTool({ rootPath: contextPath, outputMode: "content" }),
@@ -79,7 +79,7 @@ export async function runRepoWikiAgent(
 
     const result = await agent.invoke({
         messages: [
-            new SystemMessage(REPO_WIKI_SYSTEM_PROMPT),
+            new SystemMessage(createRepoWikiSystemPrompt(WIKI_OUTPUT_DIR)),
             new HumanMessage(WIKI_GENERATION_PROMPT),
         ],
     }, {
@@ -87,7 +87,7 @@ export async function runRepoWikiAgent(
     });
 
     console.log("Wiki generation completed!");
-    console.log(`Generated files available at: ${contextPath}/wiki-output`);
+    console.log(`Generated files available at: ${wikiOutputPath}`);
 
     // Log the last message from the agent
     const lastMessage = result.messages[result.messages.length - 1];
@@ -97,7 +97,7 @@ export async function runRepoWikiAgent(
     }
 
     return {
-        wikiOutputPath: `${contextPath}/wiki-output`,
-        repoPath: `${contextPath}/repo`,
+        wikiOutputPath,
+        repoPath,
     };
 }

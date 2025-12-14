@@ -1,6 +1,6 @@
-import { FsContextEngine, type Executor } from "@fs-based-agent/core";
+import { FsContextEngine } from "@fs-based-agent/core";
 import * as fs from "node:fs/promises";
-import type { GitCloneInput } from "./executors/gitClone.executor.js";
+import { createGitCloneExecutor } from "./executors/gitClone.executor.js";
 
 export interface RepoWikiContextInput {
     repoUrl: string;
@@ -16,13 +16,15 @@ export interface RepoWikiContextInput {
  * based on input (repoUrl, branch)
  * 
  * @param engine - FsContextEngine instance
- * @param cloneRepo - Git clone executor
+ * @param wikiOutputDir - Directory name for wiki output
  * @returns Async function that creates and executes the context
  */
 export function setupRepoWikiContext(
     engine: FsContextEngine,
-    cloneRepo: Executor<GitCloneInput>
+    wikiOutputDir: string
 ) {
+    const cloneRepo = createGitCloneExecutor(engine);
+
     return async (input: RepoWikiContextInput): Promise<string> => {
         const { repoUrl, branch } = input;
 
@@ -35,8 +37,8 @@ export function setupRepoWikiContext(
                 }),
             },
             fn: async (_, dataDir) => {
-                // Create wiki-output directory in data-space
-                await fs.mkdir(`${dataDir}/wiki-output`, { recursive: true });
+                // Create wiki output directory in data-space
+                await fs.mkdir(`${dataDir}/${wikiOutputDir}`, { recursive: true });
                 return { entry: "." };
             },
         });
