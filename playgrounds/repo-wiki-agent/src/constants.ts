@@ -1,0 +1,1 @@
+export const FS_DATA_FOLDER = "./.local-fs-data";
